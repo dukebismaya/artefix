@@ -63,4 +63,4 @@ Vercel will expose the function at `/api/clip-embed`, used automatically when â€
 - `npm run preview` â€“ preview production build locally
 
 ### License
-Personal/educational use. Replace with your desired license.
+Personal/educational use. Copyright (C) 2025 The Neural Nexus All rights reserved. 

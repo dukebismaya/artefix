@@ -38,7 +38,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="mt-8 text-center text-xs text-gray-500">
-          © 2025 Artifex. Handcrafted with ❤️ for creators everywhere.
+          © 2025 The Neural Nexus™ . Handcrafted with ❤️ for creators everywhere.
         </div>
       </div>
     </footer>
