@@ -45,8 +45,12 @@ body {
   to { transform: translateY(0); opacity: 1 }
 }
 @keyframes kenburns {
-  0% { transform: scale(1) translate(0, 0) }
-  100% { transform: scale(1.12) translate(2%, 2%) }
+  0% {
+    transform: scale(1.05) translate(-1%, -1%);
+  }
+  100% {
+    transform: scale(1.15) translate(1%, 1%);
+  }
 }
 
 /* Utility classes using Tailwind + custom keyframes */
@@ -58,7 +62,7 @@ body {
 /* Smoother, longer crossfade variants */
 .animate-fade-in-slow { animation: fade-in 1200ms ease-in-out forwards }
 .animate-fade-out-slow { animation: fade-out 1200ms ease-in-out forwards }
-.animate-kenburns-slow { animation: kenburns 18s ease-in-out infinite alternate }
+.animate-kenburns-slow { animation: kenburns 25s ease-in-out infinite alternate }
 
 /* Hero layering optimizations to avoid jank */
 .hero-stage { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
