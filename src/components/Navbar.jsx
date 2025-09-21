@@ -154,6 +154,10 @@ export default function Navbar() {
             {auth && (
               <button className="px-3 py-2 rounded-lg hover:bg-white/5 text-gray-200" onClick={logout} title="Logout"><ion-icon name="log-out-outline"></ion-icon></button>
             )}
+            {/* PPT helper: toggle wireframe mode */}
+            <button type="button" className="ml-1 px-2 py-1 text-[11px] rounded border border-gray-600/60 text-gray-300 hover:bg-white/5" title="Toggle wireframe mode" onClick={() => window.toggleWireframe?.()}>
+              WF
+            </button>
           </nav>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { useCommunity } from '../context/CommunityContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useChat } from '../context/ChatContext.jsx'
@@ -166,7 +166,7 @@ export default function Community() {
                   {(p.tags||[]).length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {(p.tags||[]).map(tg => (
-                        <a key={tg} href={`/community?tag=${encodeURIComponent(tg)}`} className="text-[11px] px-2 py-0.5 rounded-full bg-sky-900/40 text-sky-300 hover:bg-sky-900/60">#{tg}</a>
+                        <Link key={tg} to={`/community?tag=${encodeURIComponent(tg)}`} className="text-[11px] px-2 py-0.5 rounded-full bg-sky-900/40 text-sky-300 hover:bg-sky-900/60">#{tg}</Link>
                       ))}
                     </div>
                   )}
@@ -229,7 +229,7 @@ function renderTextWithTags(text) {
   return parts.map((part, i) => {
     if (part.startsWith('#')) {
       const t = part.replace(/^#/, '').toLowerCase()
-      return <a key={i} href={`/community?tag=${encodeURIComponent(t)}`} className="text-sky-300 hover:underline">{part}</a>
+  return <Link key={i} to={`/community?tag=${encodeURIComponent(t)}`} className="text-sky-300 hover:underline">{part}</Link>
     }
     return <span key={i}>{part}</span>
   })

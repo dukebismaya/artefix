@@ -254,7 +254,7 @@ export default function Home() {
             <ul className="mt-6 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               {trendingPosts.map(p => (
                 <li key={p.id} className="card overflow-hidden hover-lift">
-                  <a href={`/community/${p.id}`} className="block">
+                  <Link to={`/community/${p.id}`} className="block">
                     <div className="aspect-[16/10] bg-gray-800/60 relative">
                       {p.image ? (
                         <img src={p.image} alt="post" className="w-full h-full object-cover" />
@@ -279,7 +279,7 @@ export default function Home() {
                       <div className="line-clamp-2 text-gray-200">{p.text || 'Untitled post'}</div>
                       <div className="text-[11px] text-gray-500 mt-1">{new Date(p.createdAt).toLocaleDateString()}</div>
                     </div>
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>

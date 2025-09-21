@@ -1,0 +1,41 @@
+/* Minimal, non-destructive wireframe overlay for quick PPT screenshots */
+html.wireframe {
+  filter: grayscale(1);
+}
+html.wireframe img,
+html.wireframe video,
+html.wireframe canvas,
+html.wireframe iframe {
+  opacity: 0 !important;
+}
+html.wireframe .card,
+html.wireframe .btn,
+html.wireframe .input,
+html.wireframe header,
+html.wireframe footer,
+html.wireframe nav,
+html.wireframe section,
+html.wireframe main,
+html.wireframe aside,
+html.wireframe article,
+html.wireframe div {
+  outline: 1px dashed #8e9bb5 !important;
+  background-image: linear-gradient(135deg, rgba(120,120,120,.06), rgba(120,120,120,.12)) !important;
+  background-blend-mode: multiply;
+}
+html.wireframe .btn,
+html.wireframe button,
+html.wireframe a.btn {
+  background: transparent !important;
+}
+html.wireframe * {
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+html.wireframe .gradient-text,
+html.wireframe .section-gradient {
+  background: none !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+/* Keep layout readable */
+html.wireframe .label { opacity: 0.7; }

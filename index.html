@@ -13,6 +13,22 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Wireframe mode stylesheet (for PPT wireframes). Toggle via ?wireframe=1 or window.toggleWireframe() -->
+    <link rel="stylesheet" href="/src/styles/wireframe.css" />
+    <script>
+      (function () {
+        try {
+          const qs = new URLSearchParams(location.search);
+          const wf = qs.get('wireframe') ?? localStorage.getItem('wireframe');
+          if (wf === '1' || wf === 'true') document.documentElement.classList.add('wireframe');
+          window.toggleWireframe = function () {
+            const el = document.documentElement;
+            const on = el.classList.toggle('wireframe');
+            localStorage.setItem('wireframe', on ? '1' : '0');
+          };
+        } catch {}
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

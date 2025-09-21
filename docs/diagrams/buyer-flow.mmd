@@ -1,0 +1,8 @@
+flowchart TD
+    A[Discover on Home and Marketplace] --> B[Open Product Detail]
+    B --> C{Check delivery ETA}
+    C -- ZIP OK --> D[Add to Cart]
+    D --> E[Review Cart]
+    E --> F[Place Order]
+    B --> G[ChatBot QA]
+    B --> H[Share Poster]

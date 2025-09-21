@@ -1,0 +1,15 @@
+flowchart LR
+  UserInput[[Image or Style Prompt]] --> Q(QueryEmbed)
+  Products[(Product Images)] -->|loop| P[Embed Each Image]
+  subgraph Local
+    Q[embedImageFromUrl / embedText]
+    P[embedImageFromUrl]
+  end
+  subgraph Cloud
+    CE[/POST /api/clip-embed/]
+  end
+  Q -->|useCloud? yes| CE
+  P -->|useCloud? yes| CE
+  Q -->|no| Results[similarityMatrix]
+  P -->|no| Results
+  CE --> Results
