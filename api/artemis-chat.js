@@ -19,7 +19,8 @@ export default async function handler(req, res) {
   const key = process.env.AI_API_KEY
   const model = process.env.AI_MODEL || 'gpt-4o-mini'
   const hfToken = process.env.HF_TOKEN
-  const hfChatModel = process.env.HF_CHAT_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3'
+  const hfChatModel = sanitizeModelId(process.env.HF_CHAT_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3')
+  const hfFallbackModel = sanitizeModelId(process.env.HF_CHAT_MODEL_FALLBACK || 'TinyLlama/TinyLlama-1.1B-Chat-v1.0')
   const t0 = Date.now()
   const traceId = `${t0.toString(36)}-${Math.random().toString(36).slice(2, 8)}`
   res.setHeader('x-trace-id', traceId)
@@ -34,7 +35,17 @@ export default async function handler(req, res) {
           const elapsedMs = Date.now() - t0
           return res.status(200).json({ reply, provider: 'huggingface', modelUsed: hfChatModel, note: 'ok', elapsedMs, traceId })
         } catch (e) {
-          console.error('HF chat error', e)
+          console.error('HF chat error (primary)', e)
+          // Try fallback model on known transient or model issues
+          if ((e?.code === 'HF_LOADING' || e?.code === 'HF_TIMEOUT' || e?.code === 'HF_NOT_FOUND') && hfFallbackModel && hfFallbackModel !== hfChatModel) {
+            try {
+              const reply2 = await hfGenerate(hfFallbackModel, hfToken, prompt)
+              const elapsedMs = Date.now() - t0
+              return res.status(200).json({ reply: reply2, provider: 'huggingface', modelUsed: hfFallbackModel, note: `fallback:${e?.code||'error'}`, elapsedMs, traceId })
+            } catch (e2) {
+              console.error('HF chat error (fallback model)', e2)
+            }
+          }
           const reply = localFallback(messages, context)
           const elapsedMs = Date.now() - t0
           return res.status(200).json({ reply, provider: 'local-fallback', modelUsed: hfChatModel, note: e?.message || 'hf-error', elapsedMs, traceId })
@@ -119,6 +130,12 @@ async function hfGenerate(model, token, prompt) {
     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ inputs: prompt, parameters: { max_new_tokens: 320, temperature: 0.3, return_full_text: false } })
   })
+  if (r.status === 404) {
+    const err = new Error(`HF_NOT_FOUND: ${model}`)
+    err.code = 'HF_NOT_FOUND'
+    err.raw = await r.text()
+    throw err
+  }
   if (!r.ok) throw new Error(`HF chat error ${r.status}: ${await r.text()}`)
   const data = await r.json()
   // Inference API typically returns an array of objects with generated_text
@@ -127,6 +144,19 @@ async function hfGenerate(model, token, prompt) {
   if (data?.generated_text) return data.generated_text
   // Fallback to string
   return typeof data === 'string' ? data : 'I’m here to help.'
+}
+
+function sanitizeModelId(s) {
+  if (!s) return s
+  let id = String(s).trim()
+  // Strip surrounding quotes accidentally added in dashboards
+  id = id.replace(/^"|"$/g, '')
+  id = id.replace(/^'|'$/g, '')
+  // Remove accidental trailing version spec like ":something" that Inference API may not accept
+  if (id.includes(':')) {
+    id = id.split(':')[0]
+  }
+  return id
 }
 
 async function getJson(req) {
