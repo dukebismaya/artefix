@@ -1,5 +1,5 @@
 const ARTEMIS_ENDPOINT = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_ARTEMIS_CHAT_URL) || '/api/artemis-chat'
-const ARTEMIS_PY_ENDPOINT = '/api/artemis_py'
+const ARTEMIS_PY_ENDPOINT = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_ARTEMIS_PY_URL) || '/api/artemis_py'
 
 export async function artemisAsk({ messages, context, options }) {
   const r = await fetch(ARTEMIS_ENDPOINT, {

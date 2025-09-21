@@ -6,6 +6,15 @@
 
 export default async function handler(req, res) {
   try {
+    // CORS headers for cross-origin (dev or external calls)
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+
+    if (req.method === 'OPTIONS') {
+      return res.status(204).end()
+    }
+
     if (req.method !== 'POST') {
       res.setHeader('Allow', 'POST')
       return res.status(405).json({ error: 'Method Not Allowed' })
@@ -21,7 +30,7 @@ export default async function handler(req, res) {
   const hfToken = process.env.HF_TOKEN
   // Allow runtime overrides from options
   const hfChatModel = sanitizeModelId(options?.hfModel || process.env.HF_CHAT_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3')
-  const hfFallbackModel = sanitizeModelId(options?.hfFallback || process.env.HF_CHAT_MODEL_FALLBACK || 'TinyLlama/TinyLlama-1.1B-Chat-v1.0')
+  const hfFallbackModel = sanitizeModelId(options?.hfFallback || process.env.HF_CHAT_MODEL_FALLBACK || 'google/gemma-2-2b-it')
   const t0 = Date.now()
   const traceId = `${t0.toString(36)}-${Math.random().toString(36).slice(2, 8)}`
   res.setHeader('x-trace-id', traceId)
@@ -230,7 +239,7 @@ async function hfGenerate(model, token, prompt) {
   const r = await fetch(url, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ inputs: prompt, parameters: { max_new_tokens: 320, temperature: 0.3, return_full_text: false } })
+    body: JSON.stringify({ inputs: prompt, parameters: { max_new_tokens: 320, temperature: 0.3, return_full_text: false }, options: { wait_for_model: true } })
   })
   if (r.status === 404) {
     const err = new Error(`HF_NOT_FOUND: ${model}`)
