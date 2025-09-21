@@ -21,6 +21,8 @@ export default async function handler(req, res) {
   const hfToken = process.env.HF_TOKEN
   const hfChatModel = process.env.HF_CHAT_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3'
   const t0 = Date.now()
+  const traceId = `${t0.toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+  res.setHeader('x-trace-id', traceId)
 
     // Provider priority: OpenAI-compatible -> Hugging Face Inference API -> local fallback
     if (!base || !key) {
@@ -30,17 +32,17 @@ export default async function handler(req, res) {
         try {
           const reply = await hfGenerate(hfChatModel, hfToken, prompt)
           const elapsedMs = Date.now() - t0
-          return res.status(200).json({ reply, provider: 'huggingface', note: 'ok', elapsedMs })
+          return res.status(200).json({ reply, provider: 'huggingface', modelUsed: hfChatModel, note: 'ok', elapsedMs, traceId })
         } catch (e) {
           console.error('HF chat error', e)
           const reply = localFallback(messages, context)
           const elapsedMs = Date.now() - t0
-          return res.status(200).json({ reply, provider: 'local-fallback', note: e?.message || 'hf-error', elapsedMs })
+          return res.status(200).json({ reply, provider: 'local-fallback', modelUsed: hfChatModel, note: e?.message || 'hf-error', elapsedMs, traceId })
         }
       } else {
         const reply = localFallback(messages, context)
         const elapsedMs = Date.now() - t0
-        return res.status(200).json({ reply, provider: 'local-fallback', note: 'no-provider', elapsedMs })
+        return res.status(200).json({ reply, provider: 'local-fallback', note: 'no-provider', elapsedMs, traceId })
       }
     }
 
@@ -66,7 +68,7 @@ export default async function handler(req, res) {
     const data = await r.json()
     const reply = data?.choices?.[0]?.message?.content || 'I’m here to help.'
     const elapsedMs = Date.now() - t0
-    return res.status(200).json({ reply, provider: 'openai-compatible', note: 'ok', elapsedMs })
+    return res.status(200).json({ reply, provider: 'openai-compatible', modelUsed: model, note: 'ok', elapsedMs, traceId })
   } catch (e) {
     console.error('artemis-chat error', e)
     return res.status(500).json({ error: e?.message || 'Server error' })

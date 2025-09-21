@@ -45,6 +45,8 @@ export default function Artemis() {
   const [connStatus, setConnStatus] = useState('idle') // idle | connecting | connected | failed
   const [lastLatency, setLastLatency] = useState(0)
   const [lastNote, setLastNote] = useState('')
+  const [lastTrace, setLastTrace] = useState('')
+  const [lastModel, setLastModel] = useState('')
   const scrollRef = useRef(null)
 
   // Persist panel state and messages
@@ -136,12 +138,19 @@ export default function Artemis() {
     setTyping(true)
     setConnStatus('connecting')
     try {
-      const { reply, provider, elapsedMs, note } = await artemisAsk({ messages: [...messages, userMsg], context: ctx })
+  const { reply, provider, elapsedMs, note, traceId, modelUsed } = await artemisAsk({ messages: [...messages, userMsg], context: ctx })
       setProvider(provider || '')
       setLastLatency(elapsedMs || 0)
       setLastNote(note || '')
+  setLastModel(modelUsed || '')
+  setLastTrace(traceId || '')
+      try {
+        // Attempt to extract extra info from the last fetch via headers
+        // Not directly available here; we rely on body fields only.
+      } catch {}
       setConnStatus(provider && provider !== 'local-fallback' ? 'connected' : 'failed')
       setMessages(prev => [...prev, { role: 'assistant', content: reply }])
+      console.debug('[Artemis] reply', { provider, elapsedMs, note })
     } catch (e) {
       // Fallback to local rule-based
       const a = answer(text, ctx)
@@ -150,6 +159,7 @@ export default function Artemis() {
       setLastNote(e?.message || 'request-error')
       setConnStatus('failed')
       setMessages(prev => [...prev, { role: 'assistant', content: a }])
+      console.debug('[Artemis] error', e)
     } finally {
       setTyping(false)
     }
@@ -303,6 +313,19 @@ export default function Artemis() {
                         <input type="checkbox" checked={settings.muted} onChange={(e) => setSettings(s => ({ ...s, muted: e.target.checked }))} />
                       </label>
                       <button className="btn btn-outline btn-sm w-full mt-2" onClick={() => setMessages([])}>Clear conversation</button>
+                      <div className="mt-2 p-2 rounded bg-gray-900/60 text-[11px] text-gray-200">
+                        <div>Status: {connStatus}</div>
+                        <div>Provider: {provider || '-'}</div>
+                        <div>Latency: {lastLatency ? `${lastLatency}ms` : '-'}</div>
+                        <div>Note: {lastNote || '-'}</div>
+                        <div>Model: {lastModel || '-'}</div>
+                        <div>Trace: {lastTrace || '-'}</div>
+                        <button className="btn btn-outline btn-sm w-full mt-1" onClick={() => {
+                          const payload = JSON.stringify({ status: connStatus, provider, latencyMs: lastLatency, note: lastNote, model: lastModel, trace: lastTrace }, null, 2)
+                          try { navigator.clipboard.writeText(payload) } catch {}
+                        }}>Copy debug</button>
+                        <div className="mt-1 text-gray-400">Check browser console for [Artemis] logs.</div>
+                      </div>
                     </div>
                   )}
                 </div>

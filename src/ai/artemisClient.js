@@ -8,5 +8,12 @@ export async function artemisAsk({ messages, context }) {
   })
   if (!r.ok) throw new Error(await r.text())
   const data = await r.json()
-  return { reply: data.reply || '', provider: data.provider || 'unknown', elapsedMs: data.elapsedMs || 0, note: data.note || '' }
+  return {
+    reply: data.reply || '',
+    provider: data.provider || 'unknown',
+    elapsedMs: data.elapsedMs || 0,
+    note: data.note || '',
+    traceId: data.traceId || '',
+    modelUsed: data.modelUsed || ''
+  }
 }
