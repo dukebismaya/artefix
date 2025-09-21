@@ -12,22 +12,124 @@ export default async function handler(req, res) {
     }
 
     const body = await getJson(req)
-    const { messages, context } = body || {}
+    const { messages, context, options } = body || {}
     if (!Array.isArray(messages)) return res.status(400).json({ error: 'messages must be an array' })
 
   const base = process.env.AI_API_BASE
   const key = process.env.AI_API_KEY
   const model = process.env.AI_MODEL || 'gpt-4o-mini'
   const hfToken = process.env.HF_TOKEN
-  const hfChatModel = sanitizeModelId(process.env.HF_CHAT_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3')
-  const hfFallbackModel = sanitizeModelId(process.env.HF_CHAT_MODEL_FALLBACK || 'TinyLlama/TinyLlama-1.1B-Chat-v1.0')
+  // Allow runtime overrides from options
+  const hfChatModel = sanitizeModelId(options?.hfModel || process.env.HF_CHAT_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3')
+  const hfFallbackModel = sanitizeModelId(options?.hfFallback || process.env.HF_CHAT_MODEL_FALLBACK || 'TinyLlama/TinyLlama-1.1B-Chat-v1.0')
   const t0 = Date.now()
   const traceId = `${t0.toString(36)}-${Math.random().toString(36).slice(2, 8)}`
   res.setHeader('x-trace-id', traceId)
 
+    // Provider selection with optional overrides
+    const forcedLocal = !!options?.forceLocal
+    const forcedProvider = options?.forceProvider === 'huggingface' || options?.forceProvider === 'openai' ? options.forceProvider : null
+    const openaiAvailable = !!(base && key)
+    const hfAvailable = !!hfToken
+
+    if (forcedLocal) {
+      const reply = localFallback(messages, context)
+      const elapsedMs = Date.now() - t0
+      return res.status(200).json({ reply, provider: 'local-only', note: 'forced-local', elapsedMs, traceId })
+    }
+
+    // If explicitly forced to a provider, try it first
+    if (forcedProvider === 'openai' && openaiAvailable) {
+      const sys = systemPrompt(context)
+      const payload = {
+        model,
+        messages: [
+          { role: 'system', content: sys },
+          ...messages.map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content || '') }))
+        ],
+        temperature: 0.3,
+        max_tokens: 400,
+      }
+      const r = await fetch(`${base.replace(/\/$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+        body: JSON.stringify(payload)
+      })
+      if (!r.ok) {
+        const text = await r.text()
+        // If forced provider fails, do not cascade silently; fall back to HF if available, else local
+        if (hfAvailable) {
+          try {
+            const sys2 = systemPrompt(context)
+            const prompt2 = toHuggingFacePrompt(sys2, messages)
+            const reply2 = await hfGenerate(hfChatModel, hfToken, prompt2)
+            const elapsedMs = Date.now() - t0
+            return res.status(200).json({ reply: reply2, provider: 'huggingface', modelUsed: hfChatModel, note: `openai-failed:${r.status}`, elapsedMs, traceId })
+          } catch (e2) {
+            const reply3 = localFallback(messages, context)
+            const elapsedMs = Date.now() - t0
+            return res.status(200).json({ reply: reply3, provider: 'local-fallback', modelUsed: model, note: `openai-failed:${text}`, elapsedMs, traceId })
+          }
+        }
+        return res.status(500).json({ error: `AI error ${r.status}: ${text}` })
+      }
+      const data = await r.json()
+      const reply = data?.choices?.[0]?.message?.content || 'I’m here to help.'
+      const elapsedMs = Date.now() - t0
+      return res.status(200).json({ reply, provider: 'openai-compatible', modelUsed: model, note: 'ok', elapsedMs, traceId })
+    }
+
+    if (forcedProvider === 'huggingface' && hfAvailable) {
+      const sys = systemPrompt(context)
+      const prompt = toHuggingFacePrompt(sys, messages)
+      try {
+        const reply = await hfGenerate(hfChatModel, hfToken, prompt)
+        const elapsedMs = Date.now() - t0
+        return res.status(200).json({ reply, provider: 'huggingface', modelUsed: hfChatModel, note: 'ok', elapsedMs, traceId })
+      } catch (e) {
+        // Try fallback model if specified/available
+        if ((e?.code === 'HF_LOADING' || e?.code === 'HF_TIMEOUT' || e?.code === 'HF_NOT_FOUND') && hfFallbackModel && hfFallbackModel !== hfChatModel) {
+          try {
+            const reply2 = await hfGenerate(hfFallbackModel, hfToken, prompt)
+            const elapsedMs = Date.now() - t0
+            return res.status(200).json({ reply: reply2, provider: 'huggingface', modelUsed: hfFallbackModel, note: `fallback:${e?.code||'error'}` , elapsedMs, traceId })
+          } catch (e2) {}
+        }
+        // If forced HF fails and OpenAI is available, try OpenAI before local
+        if (openaiAvailable) {
+          const sys2 = systemPrompt(context)
+          const payload2 = {
+            model,
+            messages: [
+              { role: 'system', content: sys2 },
+              ...messages.map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content || '') }))
+            ],
+            temperature: 0.3,
+            max_tokens: 400,
+          }
+          try {
+            const r2 = await fetch(`${base.replace(/\/$/, '')}/chat/completions`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+              body: JSON.stringify(payload2)
+            })
+            if (r2.ok) {
+              const data2 = await r2.json()
+              const reply2 = data2?.choices?.[0]?.message?.content || 'I’m here to help.'
+              const elapsedMs = Date.now() - t0
+              return res.status(200).json({ reply: reply2, provider: 'openai-compatible', modelUsed: model, note: 'hf-failed:openai-ok', elapsedMs, traceId })
+            }
+          } catch {}
+        }
+        const reply = localFallback(messages, context)
+        const elapsedMs = Date.now() - t0
+        return res.status(200).json({ reply, provider: 'local-fallback', modelUsed: hfChatModel, note: e?.message || 'hf-error', elapsedMs, traceId })
+      }
+    }
+
     // Provider priority: OpenAI-compatible -> Hugging Face Inference API -> local fallback
-    if (!base || !key) {
-      if (hfToken) {
+    if (!openaiAvailable) {
+      if (hfAvailable) {
         const sys = systemPrompt(context)
         const prompt = toHuggingFacePrompt(sys, messages)
         try {

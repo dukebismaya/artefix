@@ -36,8 +36,13 @@ export default function Artemis() {
   const [settings, setSettings] = useState(() => {
     try {
       const s = JSON.parse(localStorage.getItem(STORAGE_SETTINGS) || '{}')
-      return { muted: !!s.muted }
-    } catch { return { muted: false } }
+      return {
+        muted: !!s.muted,
+        localOnly: !!s.localOnly,
+        hfModel: s.hfModel || '',
+        hfFallback: s.hfFallback || ''
+      }
+    } catch { return { muted: false, localOnly: false, hfModel: '', hfFallback: '' } }
   })
   const [showSettings, setShowSettings] = useState(false)
   const [typing, setTyping] = useState(false)
@@ -82,6 +87,19 @@ export default function Artemis() {
     setConnStatus('idle')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, settings.muted])
+
+  // Seed settings from URL params (once)
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search)
+    const seed = {}
+    if (sp.has('localOnly')) seed.localOnly = sp.get('localOnly') === '1' || sp.get('localOnly') === 'true'
+    if (sp.has('hfModel')) seed.hfModel = sp.get('hfModel') || ''
+    if (sp.has('hfFallback')) seed.hfFallback = sp.get('hfFallback') || ''
+    if (Object.keys(seed).length) {
+      setSettings(s => ({ ...s, ...seed }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Auto scroll to bottom on new message
   useEffect(() => {
@@ -138,7 +156,12 @@ export default function Artemis() {
     setTyping(true)
     setConnStatus('connecting')
     try {
-  const { reply, provider, elapsedMs, note, traceId, modelUsed } = await artemisAsk({ messages: [...messages, userMsg], context: ctx })
+  const { reply, provider, elapsedMs, note, traceId, modelUsed } = await artemisAsk({ messages: [...messages, userMsg], context: ctx, options: {
+        forceLocal: !!settings.localOnly,
+        forceProvider: settings.localOnly ? undefined : undefined,
+        hfModel: settings.hfModel || undefined,
+        hfFallback: settings.hfFallback || undefined
+      } })
       setProvider(provider || '')
       setLastLatency(elapsedMs || 0)
       setLastNote(note || '')
@@ -148,7 +171,7 @@ export default function Artemis() {
         // Attempt to extract extra info from the last fetch via headers
         // Not directly available here; we rely on body fields only.
       } catch {}
-      setConnStatus(provider && provider !== 'local-fallback' ? 'connected' : 'failed')
+      setConnStatus(provider && provider !== 'local-fallback' && provider !== 'local-only' ? 'connected' : 'failed')
       setMessages(prev => [...prev, { role: 'assistant', content: reply }])
       console.debug('[Artemis] reply', { provider, elapsedMs, note })
     } catch (e) {
@@ -312,6 +335,15 @@ export default function Artemis() {
                         <span className="text-sm">Mute greetings</span>
                         <input type="checkbox" checked={settings.muted} onChange={(e) => setSettings(s => ({ ...s, muted: e.target.checked }))} />
                       </label>
+                      <label className="flex items-center justify-between p-2 rounded hover:bg-gray-50 dark:hover:bg-white/5">
+                        <span className="text-sm">Local only (no cloud)</span>
+                        <input type="checkbox" checked={settings.localOnly} onChange={(e) => setSettings(s => ({ ...s, localOnly: e.target.checked }))} />
+                      </label>
+                      <div className="p-2 rounded hover:bg-gray-50 dark:hover:bg-white/5">
+                        <div className="text-xs mb-1 text-gray-500">HF model overrides</div>
+                        <input className="input input-sm w-full mb-1" placeholder="HF model e.g. mistralai/Mistral-7B-Instruct-v0.3" value={settings.hfModel} onChange={(e) => setSettings(s => ({ ...s, hfModel: e.target.value }))} />
+                        <input className="input input-sm w-full" placeholder="HF fallback e.g. TinyLlama/TinyLlama-1.1B-Chat-v1.0" value={settings.hfFallback} onChange={(e) => setSettings(s => ({ ...s, hfFallback: e.target.value }))} />
+                      </div>
                       <button className="btn btn-outline btn-sm w-full mt-2" onClick={() => setMessages([])}>Clear conversation</button>
                       <div className="mt-2 p-2 rounded bg-gray-900/60 text-[11px] text-gray-200">
                         <div>Status: {connStatus}</div>
