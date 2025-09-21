@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useProducts } from '../context/ProductsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useUI } from '../context/UIContext.jsx'
-import { artemisAsk } from '../ai/artemisClient.js'
+import { artemisAsk, artemisPyAsk } from '../ai/artemisClient.js'
 
 // Artemis: site-wide AI guide (rule-based for now)
 // - Floating button bottom-right
@@ -40,9 +40,10 @@ export default function Artemis() {
         muted: !!s.muted,
         localOnly: !!s.localOnly,
         hfModel: s.hfModel || '',
-        hfFallback: s.hfFallback || ''
+        hfFallback: s.hfFallback || '',
+        usePythonBackend: !!s.usePythonBackend
       }
-    } catch { return { muted: false, localOnly: false, hfModel: '', hfFallback: '' } }
+    } catch { return { muted: false, localOnly: false, hfModel: '', hfFallback: '', usePythonBackend: false } }
   })
   const [showSettings, setShowSettings] = useState(false)
   const [typing, setTyping] = useState(false)
@@ -156,9 +157,29 @@ export default function Artemis() {
     setTyping(true)
     setConnStatus('connecting')
     try {
-  const { reply, provider, elapsedMs, note, traceId, modelUsed } = await artemisAsk({ messages: [...messages, userMsg], context: ctx, options: {
+      // Slash command for image: /img prompt here
+      const isImageCmd = /^\s*\/img\b|^\s*\/image\b/i.test(text)
+      if (isImageCmd) {
+        const prompt = text.replace(/^\s*\/(img|image)\b\s*/i, '') || text
+        const { reply, provider, elapsedMs, note, traceId, modelUsed, imageDataUri } = await artemisPyAsk({
+          messages: [...messages, userMsg],
+          context: ctx,
+          options: { generateImage: true, imagePrompt: prompt }
+        })
+        setProvider(provider || '')
+        setLastLatency(elapsedMs || 0)
+        setLastNote(note || '')
+        setLastModel(modelUsed || '')
+        setLastTrace(traceId || '')
+        setConnStatus(provider && provider.startsWith('huggingface') ? 'connected' : (provider==='local-fallback'?'failed':'connected'))
+        setMessages(prev => [...prev, { role: 'assistant', content: reply, imageDataUri: imageDataUri || null }])
+        console.debug('[Artemis] image reply', { provider, elapsedMs, note })
+        return
+      }
+
+      const askFn = settings.usePythonBackend ? artemisPyAsk : artemisAsk
+      const { reply, provider, elapsedMs, note, traceId, modelUsed, imageDataUri } = await askFn({ messages: [...messages, userMsg], context: ctx, options: {
         forceLocal: !!settings.localOnly,
-        forceProvider: settings.localOnly ? undefined : undefined,
         hfModel: settings.hfModel || undefined,
         hfFallback: settings.hfFallback || undefined
       } })
@@ -172,7 +193,7 @@ export default function Artemis() {
         // Not directly available here; we rely on body fields only.
       } catch {}
       setConnStatus(provider && provider !== 'local-fallback' && provider !== 'local-only' ? 'connected' : 'failed')
-      setMessages(prev => [...prev, { role: 'assistant', content: reply }])
+      setMessages(prev => [...prev, { role: 'assistant', content: reply, imageDataUri: imageDataUri || null }])
       console.debug('[Artemis] reply', { provider, elapsedMs, note })
     } catch (e) {
       // Fallback to local rule-based
@@ -339,6 +360,10 @@ export default function Artemis() {
                         <span className="text-sm">Local only (no cloud)</span>
                         <input type="checkbox" checked={settings.localOnly} onChange={(e) => setSettings(s => ({ ...s, localOnly: e.target.checked }))} />
                       </label>
+                      <label className="flex items-center justify-between p-2 rounded hover:bg-gray-50 dark:hover:bg-white/5">
+                        <span className="text-sm">Use Python backend</span>
+                        <input type="checkbox" checked={settings.usePythonBackend} onChange={(e) => setSettings(s => ({ ...s, usePythonBackend: e.target.checked }))} />
+                      </label>
                       <div className="p-2 rounded hover:bg-gray-50 dark:hover:bg-white/5">
                         <div className="text-xs mb-1 text-gray-500">HF model overrides</div>
                         <input className="input input-sm w-full mb-1" placeholder="HF model e.g. mistralai/Mistral-7B-Instruct-v0.3" value={settings.hfModel} onChange={(e) => setSettings(s => ({ ...s, hfModel: e.target.value }))} />
@@ -371,7 +396,14 @@ export default function Artemis() {
               {messages.map((m, i) => (
                 <div key={i} className={m.role === 'assistant' ? 'flex justify-start' : 'flex justify-end'}>
                   <div className={m.role === 'assistant' ? 'bg-indigo-50 text-gray-800 dark:bg-indigo-900/40 dark:text-indigo-50' : 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'}>
-                    <p className={`px-3 py-2 rounded-2xl ${m.role === 'assistant' ? 'rounded-tl-sm' : 'rounded-tr-sm'}`}>{m.content}</p>
+                    <div className={`px-3 py-2 rounded-2xl ${m.role === 'assistant' ? 'rounded-tl-sm' : 'rounded-tr-sm'}`}>
+                      <p>{m.content}</p>
+                      {m.imageDataUri && (
+                        <div className="mt-2">
+                          <img src={m.imageDataUri} alt="Generated" className="max-h-72 rounded-lg border border-black/10" />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
