@@ -87,16 +87,64 @@ body {
 .focus-ring:focus { box-shadow: 0 0 0 4px var(--ring); }
 
 /* Buttons */
-.btn { @apply inline-flex items-center justify-center rounded-xl px-5 py-2.5 font-medium transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed }
-.btn-primary { @apply text-white bg-gradient-to-r from-sky-500 to-cyan-400 hover:from-sky-400 hover:to-cyan-300; box-shadow: 0 8px 20px -10px rgba(56,189,248,0.45) }
-.btn-secondary { @apply text-sky-300 border border-slate-600/60; background: color-mix(in oklab, var(--surface-strong) 85%, transparent); }
-.btn-secondary:hover { @apply border-sky-400; background: color-mix(in oklab, var(--surface-strong) 95%, transparent); }
-.btn-outline { @apply border border-slate-600 text-slate-200 hover:border-sky-400 hover:text-sky-300 }
-.btn-danger { @apply text-white bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 }
+.btn { @apply inline-flex items-center justify-center rounded-xl px-5 py-2.5 font-medium disabled:opacity-50 disabled:cursor-not-allowed; 
+  transition: transform 220ms ease, box-shadow 320ms ease, background-position 360ms ease, background-color 240ms ease, color 240ms ease; 
+  will-change: transform, box-shadow, background-position; }
+.btn:hover { transform: translateY(-1px) }
+.btn:active { transform: translateY(0) scale(0.98) }
+
+/* Primary: vibrant sky → cyan gradient with animated shift */
+.btn-primary { @apply text-white; 
+  background-image: linear-gradient(135deg, var(--accent-1) 0%, var(--accent-2) 100%);
+  background-size: 200% 200%;
+  box-shadow: 0 8px 22px -10px rgba(56,189,248,0.45);
+}
+.btn-primary:hover { background-position: 100% 0; box-shadow: 0 12px 28px -12px rgba(56,189,248,0.6) }
+.btn-primary:focus { box-shadow: 0 0 0 4px var(--ring), 0 10px 26px -14px rgba(56,189,248,0.6) }
+
+/* Secondary: subtle dark gradient with cyan tint on hover */
+.btn-secondary { @apply text-sky-300; 
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+  background-image: linear-gradient(135deg, rgba(15,23,42,0.88), rgba(2,6,23,0.88));
+  background-size: 160% 160%;
+}
+.btn-secondary:hover { 
+  border-color: rgb(56 189 248 / 0.55);
+  background-image: linear-gradient(135deg, rgba(17,24,39,0.92), rgba(2,6,23,0.92));
+  background-position: 100% 0;
+  box-shadow: 0 10px 26px -14px rgba(56,189,248,0.35);
+}
+.btn-secondary:focus { box-shadow: 0 0 0 4px var(--ring) }
+
+/* Outline: gradient border with glassy interior */
+.btn-outline {
+  color: #e5e7eb;
+  border: 1px solid transparent;
+  background: 
+    linear-gradient(var(--surface-strong), var(--surface-strong)) padding-box,
+    linear-gradient(135deg, rgba(56,189,248,0.55), rgba(34,211,238,0.4)) border-box;
+}
+.btn-outline:hover {
+  color: rgb(186 230 253);
+  background: 
+    linear-gradient(color-mix(in oklab, var(--surface-strong) 98%, transparent), color-mix(in oklab, var(--surface-strong) 98%, transparent)) padding-box,
+    linear-gradient(135deg, rgba(56,189,248,0.75), rgba(34,211,238,0.55)) border-box;
+  box-shadow: 0 10px 24px -14px rgba(56,189,248,0.35);
+}
+.btn-outline:focus { box-shadow: 0 0 0 4px var(--ring) }
+
+/* Danger: rose gradient with the same animated shift */
+.btn-danger { @apply text-white; 
+  background-image: linear-gradient(135deg, #e11d48, #fb7185);
+  background-size: 200% 200%;
+}
+.btn-danger:hover { background-position: 100% 0; box-shadow: 0 12px 28px -12px rgba(244,63,94,0.5) }
+.btn-danger:focus { box-shadow: 0 0 0 4px rgba(244,63,94,0.35) }
 
 /* Compact button variants */
 .btn-sm { @apply rounded-lg px-3 py-1.5 text-sm }
 .btn-icon { @apply w-9 h-9 p-0 rounded-lg inline-flex items-center justify-center }
+.btn-icon:hover { transform: translateY(-1px) }
 
 /* Cards */
 .card { border: 1px solid var(--border); background: var(--surface); @apply rounded-2xl shadow-sm hover:shadow-lg transition-shadow backdrop-blur-sm }

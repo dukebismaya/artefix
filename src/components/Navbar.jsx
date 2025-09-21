@@ -1,6 +1,7 @@
 import { NavLink, useNavigate, useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useChat } from '../context/ChatContext.jsx'
 import { useToast } from './Toast.jsx'
 import { useUI } from '../context/UIContext.jsx'
 import logoUrl from '../assets/logo.svg'
@@ -16,6 +17,8 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const { cartCount, wishlistCount } = useUI()
   const { push } = useToast()
+  const { totalUnread } = useChat()
+  const unread = auth?.userId ? totalUnread(auth.userId) : 0
 
   useEffect(() => {
     // Lock body scroll when drawer open
@@ -86,6 +89,27 @@ export default function Navbar() {
               title="AI Studio"
             >
               AI Studio
+            </NavLink>
+            <NavLink
+              to="/workshops"
+              className={({ isActive }) =>
+                `px-3 py-2 rounded-lg transition hover:bg-white/5 ${isActive ? 'text-sky-300 border-b-2 border-sky-400' : 'text-gray-200 border-b-2 border-transparent'}`
+              }
+              title="Workshops"
+            >
+              Workshops
+            </NavLink>
+            <NavLink
+              to="/community"
+              className={({ isActive }) =>
+                `relative px-3 py-2 rounded-lg transition hover:bg-white/5 ${isActive ? 'text-sky-300 border-b-2 border-sky-400' : 'text-gray-200 border-b-2 border-transparent'}`
+              }
+              title="Community"
+            >
+              Community
+              {unread > 0 && (
+                <span className="absolute -top-1 -right-2 bg-rose-500 text-white text-[10px] min-w-[16px] h-[16px] rounded-full grid place-items-center px-1">{unread}</span>
+              )}
             </NavLink>
             {isSeller && (
               <NavLink

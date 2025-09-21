@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useProducts } from '../context/ProductsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { formatINR } from '../utils/format.js'
@@ -13,8 +13,10 @@ export default function ProductCard({ product }) {
   const { addToCart, toggleWishlist, wishlist } = useUI()
   const { push } = useToast()
   const me = currentUser?.()
+  const navigate = useNavigate()
   const isSeller = auth?.role === 'seller'
   const canManage = isSeller && me?.id && product.sellerId === me.id
+  const isOwner = canManage
 
   function onDelete() {
     const ok = confirm(`Delete \"${product.name}\"? This cannot be undone.`)
@@ -25,11 +27,25 @@ export default function ProductCard({ product }) {
   const wished = wishlist?.includes(product.id)
 
   function onAddToCart() {
+    if (!auth) {
+      try { push('Please login to add to cart', 'info') } catch {}
+      navigate('/login-buyer')
+      return
+    }
+    if (isOwner) {
+      try { push("You can't add your own product to cart", 'error') } catch {}
+      return
+    }
     addToCart({ id: product.id, name: product.name, price: product.price, image: product.image, qty: 1 })
     try { push('Added to cart', 'success') } catch {}
   }
 
   function onToggleWish() {
+    if (!auth) {
+      try { push('Please login to manage wishlist', 'info') } catch {}
+      navigate('/login-buyer')
+      return
+    }
     toggleWishlist(product.id)
     try { push(wished ? 'Removed from wishlist' : 'Added to wishlist', 'info') } catch {}
   }
@@ -53,6 +69,7 @@ export default function ProductCard({ product }) {
       <div className="p-4">
         <h3 className="text-lg font-semibold line-clamp-1">{product.name}</h3>
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{product.category}</p>
+        <div className="mt-1 text-[11px] text-gray-400">Sold by {isOwner ? 'You' : (product.sellerName || 'Artisan')}</div>
         <div className="mt-1 text-xs">Stock: <span className={outOfStock ? 'text-rose-400' : 'text-teal-300'}>{product.stock ?? 0}</span></div>
         {product.description && (
           <p className="mt-2 text-sm text-gray-300 line-clamp-2">{product.description}</p>
@@ -74,8 +91,8 @@ export default function ProductCard({ product }) {
             <button
               className="btn btn-secondary btn-icon"
               onClick={onAddToCart}
-              disabled={outOfStock}
-              title={outOfStock ? 'Out of stock' : 'Add to cart'}
+              disabled={outOfStock || isOwner}
+              title={outOfStock ? 'Out of stock' : (isOwner ? "Can't add own product" : 'Add to cart')}
               aria-label="Add to cart"
             >
               <ion-icon name="cart-outline"></ion-icon>

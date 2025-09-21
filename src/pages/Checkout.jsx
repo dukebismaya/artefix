@@ -5,6 +5,7 @@ import { useUI } from '../context/UIContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useEffect, useMemo, useState } from 'react'
 import { formatINR } from '../utils/format.js'
+import { estimateShipping, formatEta } from '../utils/shipping.js'
 import QRCode from 'qrcode'
 import { useToast } from '../components/Toast.jsx'
 
@@ -14,7 +15,7 @@ export default function Checkout() {
   const { products, decrementStock } = useProducts()
   const { createOrder } = useOrders()
   const { removeFromCart } = useUI()
-  const { currentUser } = useAuth()
+  const { currentUser, users } = useAuth()
   const buyer = currentUser()
   const { push } = useToast()
 
@@ -66,12 +67,37 @@ export default function Checkout() {
     return sum % 10 === 0
   }
 
-  // Shipping costs
+  // Determine origin ZIP from seller's default address
+  const originZip = useMemo(() => {
+    const sid = product?.sellerId
+    if (!sid) return ''
+    const seller = (users?.sellers || []).find(s => s.id === sid)
+    if (!seller) return ''
+    const def = (seller.addresses || []).find(a => a.id === seller.defaultAddressId) || null
+    return String(def?.zip || '').trim()
+  }, [product?.sellerId, users?.sellers])
+
+  // Shipping estimate from origin to buyer ZIP
+  const shippingEst = useMemo(() => {
+    const toZip = String(address?.zip || '').trim()
+    if (!/^\d{6}$/.test(String(originZip)) || !/^\d{6}$/.test(toZip)) return null
+    return estimateShipping({ fromZip: originZip, toZip, weightKg: Number(product?.weightKg || 0.6) })
+  }, [originZip, address?.zip, product?.weightKg])
+
+  // Shipping costs based on estimate, with Express multiplier
   const shippingCost = useMemo(() => {
-    const base = shippingMethod === 'Express' ? 15 : 5
     if (promoApplied?.type === 'FREESHIP') return 0
-    return base
-  }, [shippingMethod, promoApplied])
+    if (!shippingEst?.serviceable) return 0
+    const base = Number(shippingEst.cost || 0)
+    const factor = shippingMethod === 'Express' ? 1.5 : 1
+    return Math.round(base * factor)
+  }, [shippingEst, shippingMethod, promoApplied])
+
+  const etaLabel = useMemo(() => {
+    if (!shippingEst?.serviceable) return ''
+    const d = shippingMethod === 'Express' ? Math.max(1, (shippingEst.days || 0) - 1) : (shippingEst.days || 0)
+    return formatEta(d)
+  }, [shippingEst, shippingMethod])
 
   // Amounts
   const amounts = useMemo(() => {
@@ -191,6 +217,15 @@ export default function Checkout() {
         amounts,
         paymentMethod,
         paymentInfo,
+        shippingInfo: shippingEst ? {
+          fromZip: originZip || '',
+          toZip: String(address?.zip || ''),
+          zone: shippingEst.zone,
+          days: shippingMethod === 'Express' ? Math.max(1, (shippingEst.days || 0) - 1) : shippingEst.days,
+          method: shippingMethod,
+          cost: amounts.shipping,
+          serviceable: shippingEst.serviceable,
+        } : null,
       })
   decrementStock(product.id, qty)
   try { removeFromCart(product.id) } catch {}
@@ -273,6 +308,9 @@ export default function Checkout() {
                 <div className="flex justify-between text-teal-300"><span>Discount</span><span>-{fmt(amounts.discount)}</span></div>
               )}
               <div className="flex justify-between mt-1"><span>Shipping</span><span>{fmt(amounts.shipping)}</span></div>
+              {etaLabel && (
+                <div className="mt-1 text-xs text-gray-400">ETA: {etaLabel} {originZip && address?.zip ? `(from ${originZip} → ${String(address.zip).trim()})` : ''}</div>
+              )}
               <div className="flex justify-between mt-1 text-gray-300"><span>Tax (8%)</span><span>{fmt(amounts.tax)}</span></div>
               <div className="flex justify-between mt-2 text-lg font-semibold"><span>Total</span><span>{fmt(amounts.total)}</span></div>
             </div>
@@ -285,6 +323,9 @@ export default function Checkout() {
               <option value="Standard">Standard (3-6 days) — {fmt(5)}</option>
               <option value="Express">Express (1-2 days) — {fmt(15)}</option>
             </select>
+            {etaLabel && (
+              <div className="text-xs text-gray-400 mt-1">Estimated delivery: {etaLabel}</div>
+            )}
 
             {/* Promo code */}
             <div className="mt-3">

@@ -48,7 +48,8 @@ function Overview({ me, update }) {
   const [email, setEmail] = useState(me.email || '')
   const [phone, setPhone] = useState(me.phone || '')
   const [avatarUrl, setAvatarUrl] = useState(me.avatarUrl || '')
-  function save() { update({ name, email, phone, avatarUrl }) }
+  const [introVideoUrl, setIntroVideoUrl] = useState(me.introVideoUrl || '')
+  function save() { update({ name, email, phone, avatarUrl, introVideoUrl }) }
   return (
     <div className="grid sm:grid-cols-2 gap-4">
       <div>
@@ -58,6 +59,8 @@ function Overview({ me, update }) {
         <input className="input" value={email} onChange={e=>setEmail(e.target.value)} />
         <label className="label mt-3">Phone</label>
         <input className="input" value={phone} onChange={e=>setPhone(e.target.value)} />
+        <label className="label mt-3">Intro Video URL</label>
+        <input className="input" value={introVideoUrl} onChange={e=>setIntroVideoUrl(e.target.value)} placeholder="https://... (MP4, WebM, or YouTube embed)" />
       </div>
       <div>
         <label className="label">Avatar URL</label>

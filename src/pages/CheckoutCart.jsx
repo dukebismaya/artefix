@@ -5,6 +5,7 @@ import { useProducts } from '../context/ProductsContext.jsx'
 import { useOrders } from '../context/OrdersContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { formatINR } from '../utils/format.js'
+import { estimateShipping, formatEta } from '../utils/shipping.js'
 import { useToast } from '../components/Toast.jsx'
 import QRCode from 'qrcode'
 
@@ -12,7 +13,7 @@ export default function CheckoutCart() {
   const { cart, clearCart } = useUI()
   const { products, decrementStock } = useProducts()
   const { createOrder } = useOrders()
-  const { currentUser } = useAuth()
+  const { currentUser, users } = useAuth()
   const user = currentUser()
   const nav = useNavigate()
   const { push } = useToast()
@@ -24,20 +25,40 @@ export default function CheckoutCart() {
     return { product: p, qty }
   }).filter(Boolean), [cart, products])
 
-  const amounts = useMemo(() => {
-    const subtotal = items.reduce((s, it) => s + Number(it.product.price || 0) * it.qty, 0)
-    const shipping = subtotal > 0 ? 5 : 0
-    const tax = subtotal * 0.08
-    const total = Math.max(0, subtotal + shipping + tax)
-    return { subtotal, shipping, tax, total }
-  }, [items])
-
   const defaultAddress = useMemo(() => {
     if (!user) return null
     const arr = user.addresses || []
     return arr.find(a => a.id === user.defaultAddressId) || arr[0] || null
   }, [user])
   const [address, setAddress] = useState(() => (defaultAddress ? { ...defaultAddress } : { name: user?.name || '', line1: '', line2: '', city: '', state: '', zip: '', country: 'India' }))
+
+  // Compute per-item shipping based on seller origin and buyer ZIP
+  const shippingBreakdown = useMemo(() => {
+    const toZip = String((address?.zip || '')).trim()
+    const map = new Map()
+    ;(users?.sellers || []).forEach(s => map.set(s.id, s))
+    return items.map(({ product, qty }) => {
+      const seller = map.get(product.sellerId)
+      const def = seller ? (seller.addresses || []).find(a => a.id === seller.defaultAddressId) : null
+      const originZip = String(def?.zip || '').trim()
+      let est = null
+      if (/^\d{6}$/.test(originZip) && /^\d{6}$/.test(toZip)) {
+        est = estimateShipping({ fromZip: originZip, toZip, weightKg: Number(product?.weightKg || 0.6) })
+      }
+      const cost = est?.serviceable ? Math.round(Number(est.cost || 0)) : 0
+      const eta = est?.serviceable ? formatEta(est.days || 0) : ''
+      return { id: product.id, cost, eta, originZip, toZip, est, qty }
+    })
+  }, [items, address?.zip, users?.sellers])
+
+  const amounts = useMemo(() => {
+    const subtotal = items.reduce((s, it) => s + Number(it.product.price || 0) * it.qty, 0)
+    const shipping = shippingBreakdown.reduce((s, x) => s + x.cost, 0)
+    const tax = subtotal * 0.08
+    const total = Math.max(0, subtotal + shipping + tax)
+    return { subtotal, shipping, tax, total }
+  }, [items, shippingBreakdown])
+
   const [paymentMethod, setPaymentMethod] = useState('Card')
   const [card, setCard] = useState({ number: '', name: user?.name || '', expiry: '', cvv: '' })
   const [upi, setUpi] = useState({ vpa: '', note: 'ArtisanAI cart order' })
@@ -91,6 +112,7 @@ export default function CheckoutCart() {
     setTimeout(() => {
       // Create an order per item to keep seller flow unchanged
       items.forEach(({ product, qty }) => {
+        const sb = shippingBreakdown.find(x => x.id === product.id)
         createOrder({
           productId: product.id,
           sellerId: product.sellerId || null,
@@ -99,13 +121,22 @@ export default function CheckoutCart() {
           address,
           shippingMethod: 'Standard',
           promoCode: null,
-          amounts: { price: product.price, subtotal: product.price * qty, discount: 0, shipping: 0, tax: 0, total: product.price * qty },
+          amounts: { price: product.price, subtotal: product.price * qty, discount: 0, shipping: sb?.cost || 0, tax: 0, total: product.price * qty + (sb?.cost || 0) },
           paymentMethod,
           paymentInfo: paymentMethod === 'Card'
             ? { status: 'PAID', method: 'Card', last4: (card.number || '').replace(/\D/g, '').slice(-4) }
             : paymentMethod === 'UPI'
               ? { status: 'PAID', method: 'UPI', vpa: upi.vpa }
               : { status: 'COD_PENDING', method: 'Cash on Delivery' },
+          shippingInfo: sb ? {
+            fromZip: sb.originZip,
+            toZip: sb.toZip,
+            zone: sb.est?.zone,
+            days: sb.est?.days,
+            method: 'Standard',
+            cost: sb.cost,
+            serviceable: !!sb.est?.serviceable,
+          } : null,
         })
         decrementStock(product.id, qty)
       })
@@ -125,15 +156,25 @@ export default function CheckoutCart() {
         <div className="card p-5">
           <h3 className="section-title mb-3">Items</h3>
           <ul className="space-y-3">
-            {items.map(({ product, qty }) => (
-              <li key={product.id} className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-medium truncate">{product.name}</div>
-                  <div className="text-xs text-gray-400">Qty: {qty} • {formatINR(product.price)} each</div>
-                </div>
-                <div className="font-semibold">{formatINR(product.price * qty)}</div>
-              </li>
-            ))}
+            {items.map(({ product, qty }) => {
+              const sb = shippingBreakdown.find(x => x.id === product.id)
+              return (
+                <li key={product.id} className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{product.name}</div>
+                    <div className="text-xs text-gray-400">Qty: {qty} • {formatINR(product.price)} each</div>
+                    <div className="text-[11px] text-gray-500 mt-0.5">
+                      {sb?.est?.serviceable ? (
+                        <span>Ships {sb.originZip && sb.toZip ? `from ${sb.originZip} → ${sb.toZip}` : ''} • ETA {sb.eta} • Shipping {formatINR(sb.cost)}</span>
+                      ) : (
+                        <span>Shipping will be shown after ZIP</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="font-semibold whitespace-nowrap">{formatINR(product.price * qty)}</div>
+                </li>
+              )
+            })}
           </ul>
           <div className="mt-4 text-sm">
             <div className="flex justify-between"><span>Subtotal</span><span>{formatINR(amounts.subtotal)}</span></div>

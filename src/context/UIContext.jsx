@@ -1,31 +1,47 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useAuth } from './AuthContext.jsx'
 
-const STORAGE_CART = 'artifex_cart_v1'
-const STORAGE_WISHLIST = 'artifex_wishlist_v1'
-const STORAGE_SAVED = 'artifex_saved_v1'
+function makeKeys(auth) {
+  const prefix = auth?.userId ? `artifex_${auth.role}_${auth.userId}` : 'artifex_guest'
+  return {
+    CART: `${prefix}_cart_v1`,
+    WISHLIST: `${prefix}_wishlist_v1`,
+    SAVED: `${prefix}_saved_v1`,
+    VIEWED: `${prefix}_viewed_v1`,
+  }
+}
 
 const UIContext = createContext(null)
 
 export function UIProvider({ children }) {
-  const [cart, setCart] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_CART) || '[]') } catch { return [] }
-  })
-  const [wishlist, setWishlist] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_WISHLIST) || '[]') } catch { return [] }
-  })
-  const [saved, setSaved] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_SAVED) || '[]') } catch { return [] }
-  })
+  const { auth } = useAuth()
+  const KEYS = useMemo(() => makeKeys(auth), [auth?.role, auth?.userId])
+  const [cart, setCart] = useState([])
+  const [wishlist, setWishlist] = useState([])
+  const [saved, setSaved] = useState([])
+  const [viewed, setViewed] = useState([]) // most-recent-first product ids
+
+  // Load per-user data on auth change
+  useEffect(() => {
+    try { setCart(JSON.parse(localStorage.getItem(KEYS.CART) || '[]')) } catch { setCart([]) }
+    try { setWishlist(JSON.parse(localStorage.getItem(KEYS.WISHLIST) || '[]')) } catch { setWishlist([]) }
+    try { setSaved(JSON.parse(localStorage.getItem(KEYS.SAVED) || '[]')) } catch { setSaved([]) }
+    try { setViewed(JSON.parse(localStorage.getItem(KEYS.VIEWED) || '[]')) } catch { setViewed([]) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [KEYS.CART, KEYS.WISHLIST, KEYS.SAVED, KEYS.VIEWED])
 
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_CART, JSON.stringify(cart)) } catch {}
-  }, [cart])
+    try { localStorage.setItem(KEYS.CART, JSON.stringify(cart)) } catch {}
+  }, [cart, KEYS.CART])
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_WISHLIST, JSON.stringify(wishlist)) } catch {}
-  }, [wishlist])
+    try { localStorage.setItem(KEYS.WISHLIST, JSON.stringify(wishlist)) } catch {}
+  }, [wishlist, KEYS.WISHLIST])
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_SAVED, JSON.stringify(saved)) } catch {}
-  }, [saved])
+    try { localStorage.setItem(KEYS.SAVED, JSON.stringify(saved)) } catch {}
+  }, [saved, KEYS.SAVED])
+  useEffect(() => {
+    try { localStorage.setItem(KEYS.VIEWED, JSON.stringify(viewed)) } catch {}
+  }, [viewed, KEYS.VIEWED])
 
   function addToCart(item) {
     // item: { id, name, price, image, qty }
@@ -79,10 +95,20 @@ export function UIProvider({ children }) {
     setWishlist(prev => prev.includes(id) ? prev.filter(x => x !== id) : [id, ...prev])
   }
 
+  // Track recently viewed products (dedup, cap to 50)
+  function markViewed(id) {
+    setViewed(prev => {
+      const arr = [id, ...prev.filter(x => x !== id)]
+      return arr.slice(0, 50)
+    })
+  }
+  function clearViewed() { setViewed([]) }
+
   const value = useMemo(() => ({
     cart,
     saved,
     wishlist,
+  viewed,
     cartCount: cart.reduce((sum, i) => sum + (i.qty || 1), 0),
     savedCount: saved.length,
     wishlistCount: wishlist.length,
@@ -96,6 +122,8 @@ export function UIProvider({ children }) {
     moveSavedToCart,
     removeFromSaved,
     toggleWishlist,
+    markViewed,
+    clearViewed,
   }), [cart, saved, wishlist])
 
   return <UIContext.Provider value={value}>{children}</UIContext.Provider>

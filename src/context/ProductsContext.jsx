@@ -31,6 +31,12 @@ export function ProductsProvider({ children }) {
       sellerId: p.sellerId || null,
       description: p.description?.trim() || '',
       image: p.image || null,
+      // regional discovery metadata
+      region: (p.region || '').trim(), // e.g., "Bihar", "Kutch", "Rajasthan"
+      techniques: Array.isArray(p.techniques) ? p.techniques.map(t => String(t).trim()).filter(Boolean) : [], // ["Madhubani", "Bandhani"]
+      // embedding placeholders for AI personalization (optional future use)
+      textVector: Array.isArray(p.textVector) ? p.textVector : undefined,
+      imageVector: Array.isArray(p.imageVector) ? p.imageVector : undefined,
       createdAt: new Date().toISOString(),
     }
     setProducts(prev => [product, ...prev])

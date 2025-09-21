@@ -4,9 +4,11 @@ import { useProducts } from '../context/ProductsContext.jsx'
 import { useMemo, useState } from 'react'
 import { formatINR } from '../utils/format.js'
 import { useToast } from '../components/Toast.jsx'
+import { useChat } from '../context/ChatContext.jsx'
+import DirectChat from '../components/DirectChat.jsx'
 
 export default function SellerDashboard() {
-  const { currentUser } = useAuth()
+  const { currentUser, setDefaultAddress, addPaymentMethod, removePaymentMethod, setDefaultPaymentMethod } = useAuth()
   const seller = currentUser()
   const { orders, updateOrder } = useOrders()
   const { products, updateProduct, removeProduct } = useProducts()
@@ -16,6 +18,9 @@ export default function SellerDashboard() {
   const [editing, setEditing] = useState({}) // id -> { addStock, price }
   const [ship, setShip] = useState({}) // orderId -> { courier, trackingId, eta }
   const { push } = useToast()
+  const { userThreads, unreadCount, markSeen } = useChat()
+  const threads = seller ? userThreads(seller.id) : []
+  const [openThread, setOpenThread] = useState(null)
 
   function changeEdit(id, patch) {
     setEditing(prev => ({ ...prev, [id]: { addStock: 1, price: '', ...prev[id], ...patch } }))
@@ -60,6 +65,84 @@ export default function SellerDashboard() {
     <section className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pt-8 pb-16">
       <h2 className="text-2xl font-bold gradient-text">Seller Dashboard</h2>
       <p className="text-sm text-gray-400">New purchases will appear here. Pack and ship to the address provided by the buyer.</p>
+
+      <div className="mt-6 card p-5">
+        <h3 className="section-title">Store Settings</h3>
+        <div className="grid md:grid-cols-2 gap-4 mt-3">
+          <div>
+            <div className="font-medium mb-2">Shipping Origin</div>
+            {seller?.addresses?.length ? (
+              <div className="space-y-2">
+                {(seller.addresses||[]).map(a => (
+                  <div key={a.id} className={`p-3 rounded border ${seller.defaultAddressId===a.id?'border-teal-600/50 bg-teal-900/10':'border-gray-800/60'}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm">
+                        <div className="font-medium">{a.label} {seller.defaultAddressId===a.id && <span className="text-xs text-teal-300 ml-1">Default</span>}</div>
+                        <div className="text-xs text-gray-400">{a.city}, {a.state} {a.zip}</div>
+                      </div>
+                      <button className="btn btn-secondary" disabled={seller.defaultAddressId===a.id} onClick={() => setDefaultAddress(a.id)}>Set default</button>
+                    </div>
+                  </div>
+                ))}
+                <div className="text-xs text-gray-400">Manage addresses in <a className="underline" href="/profile">Profile › Addresses</a>.</div>
+              </div>
+            ) : (
+              <div className="text-sm text-amber-300">No addresses yet. Add one in <a className="underline" href="/profile">Profile › Addresses</a> to enable delivery ETA.</div>
+            )}
+            <AddAddressInline />
+          </div>
+          <div>
+            <div className="font-medium mb-2">Payout Methods</div>
+            {(seller?.paymentMethods||[]).length ? (
+              <div className="space-y-2">
+                {(seller.paymentMethods||[]).map(pm => (
+                  <div key={pm.id} className={`p-3 rounded border ${seller.defaultPaymentMethodId===pm.id?'border-teal-600/50 bg-teal-900/10':'border-gray-800/60'}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium">{pm.label} {seller.defaultPaymentMethodId===pm.id && <span className="text-xs text-teal-300 ml-1">Default</span>}</div>
+                        <div className="text-xs text-gray-400">{pm.type==='UPI' ? `UPI • ${pm.vpa}` : `Card •••• ${pm.last4}`}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button className="btn btn-secondary" disabled={seller.defaultPaymentMethodId===pm.id} onClick={() => setDefaultPaymentMethod(pm.id)}>Set default</button>
+                        <button className="btn btn-danger" onClick={() => removePaymentMethod(pm.id)}>Remove</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-400">No payout methods yet.</div>
+            )}
+            <AddPayoutInline onAdd={(data) => addPaymentMethod(data)} />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 card p-5">
+        <h3 className="section-title">Buyer Messages</h3>
+        {threads.length === 0 ? (
+          <p className="text-sm text-gray-400 mt-2">No messages yet. Buyers can reach you from your product pages.</p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {threads.map(t => {
+              const unread = unreadCount(t.id, seller.id)
+              return (
+                <li key={t.id} className="p-3 rounded-xl border border-gray-800/60 flex items-center justify-between">
+                  <div className="text-sm flex items-center gap-2">
+                    <span>Thread with Buyer {t.buyerId.slice(-4)} • {new Date(t.lastMessageAt || t.createdAt).toLocaleString()}</span>
+                    {unread > 0 && <span className="bg-rose-500 text-white text-[10px] rounded-full px-2 py-0.5">{unread} new</span>}
+                  </div>
+                  <button className="btn btn-secondary" onClick={() => { setOpenThread(t); markSeen(t.id, seller.id) }}>Open</button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+
+      {openThread && (
+        <DirectChat buyerId={openThread.buyerId} sellerId={openThread.sellerId} productId={openThread.productId} sellerName={seller?.name||'Artisan'} onClose={() => setOpenThread(null)} />
+      )}
 
       <div className="mt-6 card p-5">
         <h3 className="section-title">Orders to Fulfill</h3>
@@ -155,5 +238,115 @@ export default function SellerDashboard() {
         )}
       </div>
     </section>
+  )
+}
+
+function AddPayoutInline({ onAdd }) {
+  const [type, setType] = useState('UPI')
+  const [label, setLabel] = useState('UPI')
+  const [vpa, setVpa] = useState('')
+  const [name, setName] = useState('')
+  const [last4, setLast4] = useState('')
+  const { push } = useToast()
+  function submit(e){
+    e.preventDefault()
+    const payload = type==='UPI' ? { type, label: label||'UPI', vpa } : { type, label: label||'Card', name, last4: last4.replace(/[^\d]/g,'').slice(0,4) }
+    onAdd(payload)
+    push('Payout method added','success')
+    setVpa(''); setName(''); setLast4('')
+  }
+  return (
+    <form onSubmit={submit} className="mt-3 grid gap-2">
+      <div className="grid sm:grid-cols-3 gap-2">
+        <div>
+          <label className="label">Type</label>
+          <select className="input" value={type} onChange={e=>{ setType(e.target.value); setLabel(e.target.value==='UPI'?'UPI':'Card') }}>
+            <option>UPI</option>
+            <option>Card</option>
+          </select>
+        </div>
+        <div>
+          <label className="label">Label</label>
+          <input className="input" value={label} onChange={e=>setLabel(e.target.value)} />
+        </div>
+      </div>
+      {type==='UPI' ? (
+        <div className="grid sm:grid-cols-2 gap-2">
+          <div>
+            <label className="label">UPI ID (VPA)</label>
+            <input className="input" value={vpa} onChange={e=>setVpa(e.target.value)} placeholder="username@bank" />
+          </div>
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 gap-2">
+          <div>
+            <label className="label">Cardholder Name</label>
+            <input className="input" value={name} onChange={e=>setName(e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Last 4</label>
+            <input className="input" value={last4} onChange={e=>setLast4(e.target.value)} />
+          </div>
+        </div>
+      )}
+      <div><button className="btn btn-secondary" type="submit">Add payout method</button></div>
+    </form>
+  )
+}
+
+function AddAddressInline() {
+  const { currentUser, addAddress, setDefaultAddress } = useAuth()
+  const me = currentUser()
+  const [form, setForm] = useState({ label:'Workshop', name: me?.name || '', line1:'', line2:'', city:'', state:'', zip:'', country:'India', phone:'' })
+  const { push } = useToast()
+  function submit(e){
+    e.preventDefault()
+    const a = addAddress(form)
+    if (!me?.defaultAddressId) setDefaultAddress(a.id)
+    push('Address added','success')
+    setForm({ label:'Workshop', name: me?.name || '', line1:'', line2:'', city:'', state:'', zip:'', country:'India', phone:'' })
+  }
+  return (
+    <form onSubmit={submit} className="mt-3 grid gap-2">
+      <div className="grid sm:grid-cols-2 gap-2">
+        <div>
+          <label className="label">Label</label>
+          <input className="input" value={form.label} onChange={e=>setForm({ ...form, label:e.target.value })} />
+        </div>
+        <div>
+          <label className="label">Full Name</label>
+          <input className="input" value={form.name} onChange={e=>setForm({ ...form, name:e.target.value })} />
+        </div>
+      </div>
+      <div>
+        <label className="label">Address Line 1</label>
+        <input className="input" value={form.line1} onChange={e=>setForm({ ...form, line1:e.target.value })} />
+      </div>
+      <div className="grid sm:grid-cols-3 gap-2">
+        <div>
+          <label className="label">City</label>
+          <input className="input" value={form.city} onChange={e=>setForm({ ...form, city:e.target.value })} />
+        </div>
+        <div>
+          <label className="label">State</label>
+          <input className="input" value={form.state} onChange={e=>setForm({ ...form, state:e.target.value })} />
+        </div>
+        <div>
+          <label className="label">ZIP</label>
+          <input className="input" value={form.zip} onChange={e=>setForm({ ...form, zip:e.target.value })} />
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-2">
+        <div>
+          <label className="label">Country</label>
+          <input className="input" value={form.country} onChange={e=>setForm({ ...form, country:e.target.value })} />
+        </div>
+        <div>
+          <label className="label">Phone</label>
+          <input className="input" value={form.phone} onChange={e=>setForm({ ...form, phone:e.target.value })} />
+        </div>
+      </div>
+      <div><button className="btn btn-secondary" type="submit">Add shipping address</button></div>
+    </form>
   )
 }

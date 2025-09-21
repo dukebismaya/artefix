@@ -13,16 +13,29 @@ export default function Marketplace() {
   const initialQ = params.get('q') || ''
   const [q, setQ] = useState(initialQ)
   const [cat, setCat] = useState('All')
+  const [region, setRegion] = useState('All')
 
   const CATEGORIES = useMemo(() => ['All','Pottery','Jewelry','Textiles','Woodwork','Artwork','Other'], [])
 
+  const regions = useMemo(() => {
+    const set = new Set(products.map(p => (p.region || '').trim()).filter(Boolean))
+    return ['All', ...Array.from(set).sort()]
+  }, [products])
+
   const filtered = useMemo(() => {
+    const qlc = q.toLowerCase().trim()
     return products.filter(p => {
-      const matchesQ = q ? (p.name?.toLowerCase().includes(q.toLowerCase()) || p.description?.toLowerCase().includes(q.toLowerCase())) : true
+      const tks = (p.techniques || []).join(' ').toLowerCase()
+      const matchesQ = q ? (
+        (p.name || '').toLowerCase().includes(qlc) ||
+        (p.description || '').toLowerCase().includes(qlc) ||
+        tks.includes(qlc)
+      ) : true
       const matchesCat = cat === 'All' ? true : (p.category === cat)
-      return matchesQ && matchesCat
+      const matchesRegion = region === 'All' ? true : ((p.region || '') === region)
+      return matchesQ && matchesCat && matchesRegion
     })
-  }, [products, q, cat])
+  }, [products, q, cat, region])
 
   function onSearchSubmit(e) {
     e.preventDefault()
@@ -41,8 +54,8 @@ export default function Marketplace() {
         )}
       </div>
 
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <form className="sm:col-span-2" onSubmit={onSearchSubmit}>
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-12 gap-3">
+        <form className="sm:col-span-6" onSubmit={onSearchSubmit}>
           <input
             className="input"
             placeholder="Search products..."
@@ -50,9 +63,14 @@ export default function Marketplace() {
             onChange={(e) => setQ(e.target.value)}
           />
         </form>
-        <div>
+        <div className="sm:col-span-3">
           <select className="input" value={cat} onChange={(e) => setCat(e.target.value)}>
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div className="sm:col-span-3">
+          <select className="input" value={region} onChange={(e) => setRegion(e.target.value)}>
+            {regions.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
       </div>

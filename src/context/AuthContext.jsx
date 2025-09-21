@@ -141,13 +141,27 @@ export function AuthProvider({ children }) {
     const listKey = auth.role === 'buyer' ? 'buyers' : 'sellers'
     setUsers(prev => ({
       ...prev,
-      [listKey]: prev[listKey].map(u => u.id === auth.userId ? { ...u, paymentMethods: (u.paymentMethods||[]).filter(p => p.id !== pmId) } : u)
+      [listKey]: prev[listKey].map(u => {
+        if (u.id !== auth.userId) return u
+        const filtered = (u.paymentMethods||[]).filter(p => p.id !== pmId)
+        const defaultPm = u.defaultPaymentMethodId === pmId ? (filtered[0]?.id || null) : u.defaultPaymentMethodId
+        return { ...u, paymentMethods: filtered, defaultPaymentMethodId: defaultPm }
+      })
+    }))
+  }
+
+  function setDefaultPaymentMethod(pmId) {
+    if (!auth) throw new Error('Not authenticated')
+    const listKey = auth.role === 'buyer' ? 'buyers' : 'sellers'
+    setUsers(prev => ({
+      ...prev,
+      [listKey]: prev[listKey].map(u => u.id === auth.userId ? { ...u, defaultPaymentMethodId: pmId } : u)
     }))
   }
 
   function withDefaults(u) {
     return {
-      avatarUrl: '', phone: '', addresses: [], defaultAddressId: null, paymentMethods: [],
+      avatarUrl: '', phone: '', introVideoUrl: '', addresses: [], defaultAddressId: null, paymentMethods: [], defaultPaymentMethodId: null,
       ...u,
     }
   }
@@ -156,7 +170,7 @@ export function AuthProvider({ children }) {
     return { buyers: fix(db.buyers), sellers: fix(db.sellers) }
   }
 
-  const value = useMemo(() => ({ users, auth, signup, login, logout, currentUser, updateCurrentUser, changePassword, addAddress, updateAddress, removeAddress, setDefaultAddress, addPaymentMethod, removePaymentMethod }), [users, auth])
+  const value = useMemo(() => ({ users, auth, signup, login, logout, currentUser, updateCurrentUser, changePassword, addAddress, updateAddress, removeAddress, setDefaultAddress, addPaymentMethod, removePaymentMethod, setDefaultPaymentMethod }), [users, auth])
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 

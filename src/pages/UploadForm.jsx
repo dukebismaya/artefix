@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useProducts } from '../context/ProductsContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -37,6 +37,14 @@ export default function UploadForm() {
   const [stock, setStock] = useState(1)
   const [image, setImage] = useState(null)
   const [dragOver, setDragOver] = useState(false)
+  // Regional discovery fields
+  const me = currentUser()
+  const defaultRegion = useMemo(() => {
+    const addr = (me?.addresses || []).find(a => a.id === me?.defaultAddressId) || (me?.addresses || [])[0]
+    return addr?.state || ''
+  }, [me?.addresses, me?.defaultAddressId])
+  const [region, setRegion] = useState(defaultRegion)
+  const [techniques, setTechniques] = useState('') // comma-separated
 
   const fileInputRef = useRef(null)
 
@@ -64,7 +72,8 @@ export default function UploadForm() {
       return
     }
     const seller = currentUser()
-    const product = addProduct({ name, category, price, description, stock, image, sellerId: seller?.id || null })
+    const techArr = techniques.split(',').map(t => t.trim()).filter(Boolean)
+    const product = addProduct({ name, category, price, description, stock, image, sellerId: seller?.id || null, region, techniques: techArr })
     navigate('/marketplace')
   }
 
@@ -86,6 +95,19 @@ export default function UploadForm() {
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                <div>
+                  <label className="label">Region (State)</label>
+                  <input className="input" value={region} onChange={(e) => setRegion(e.target.value)} placeholder="e.g., Bihar, Gujarat, Rajasthan" />
+                  <p className="text-xs text-gray-500 mt-1">Used for regional discovery (e.g., Madhubani from Bihar).</p>
+                </div>
+                <div>
+                  <label className="label">Techniques / Styles</label>
+                  <input className="input" value={techniques} onChange={(e) => setTechniques(e.target.value)} placeholder="e.g., Madhubani, Kutch embroidery" />
+                  <p className="text-xs text-gray-500 mt-1">Comma-separated; helps buyers filter by style.</p>
+                </div>
+              </div>
             </div>
           </div>
 

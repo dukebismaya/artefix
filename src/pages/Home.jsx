@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useProducts } from '../context/ProductsContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
+import { useUI } from '../context/UIContext.jsx'
+import { useOrders } from '../context/OrdersContext.jsx'
+import { personalizeProducts } from '../utils/recommend.js'
 import ProductCard from '../components/ProductCard.jsx'
 import { useToast } from '../components/Toast.jsx'
+import { useCommunity } from '../context/CommunityContext.jsx'
 
 const IMAGES = [
   '/backgrounds/vecteezy_a-wooden-table-with-many-different-types-of-tools_70238682.jpeg',
@@ -15,7 +20,11 @@ const IMAGES = [
 
 export default function Home() {
   const { products } = useProducts()
+  const { currentUser, auth } = useAuth()
+  const { wishlist, viewed } = useUI()
+  const { orders } = useOrders()
   const { push } = useToast()
+  const { db: community } = useCommunity()
   const [index, setIndex] = useState(0)
   const [prev, setPrev] = useState(null)
   const timerRef = useRef(null)
@@ -67,6 +76,30 @@ export default function Home() {
       // setTimeout fallback can't be canceled safely without keeping a ref, skip
     }
   }, [])
+
+  // Trending community posts: sort by like count then recency; take 5
+  const trendingPosts = useMemo(() => {
+    if (!community) return []
+    const likeCounts = new Map()
+    community.likes.forEach(l => likeCounts.set(l.postId, (likeCounts.get(l.postId)||0)+1))
+    const posts = [...community.posts]
+    posts.sort((a, b) => {
+      const la = likeCounts.get(a.id) || 0
+      const lb = likeCounts.get(b.id) || 0
+      if (lb !== la) return lb - la
+      return new Date(b.createdAt) - new Date(a.createdAt)
+    })
+    return posts.slice(0, 5)
+  }, [community])
+
+  function youTubeId(url) {
+    try {
+      const u = new URL(url)
+      if (u.hostname.includes('youtu.be')) return u.pathname.slice(1)
+      if (u.hostname.includes('youtube.com')) return u.searchParams.get('v')
+    } catch {}
+    return null
+  }
 
   return (
     <div className="relative isolate">
@@ -172,6 +205,27 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Personalized for you */}
+      <section className="relative z-10">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="h2 section-title">For You</h2>
+            <Link to="/marketplace" className="text-sm text-teal-300 hover:underline">See all</Link>
+          </div>
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {personalizeProducts(products, {
+              wishlistIds: wishlist,
+              orders: orders.filter(o => o.buyerId === currentUser()?.id),
+              viewedIds: viewed,
+              preferredRegions: [],
+              preferredTechniques: [],
+            }, { limit: 6, maxPerSeller: 2 }).map(p => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Products of the week */}
       <section className="relative z-10">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
@@ -187,27 +241,49 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Blog teasers (static placeholders) */}
+      {/* From the Community (trending) */}
       <section className="relative z-10">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
-          <h2 className="h2 section-title">From the Community</h2>
-          <ul className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {[{
-              title:'How to price handmade crafts in India', date:'15 Aug 2025'
-            },{
-              title:'Photography tips for product listings', date:'31 Jul 2025'
-            },{
-              title:'Storytelling through your craft', date:'15 Jul 2025'
-            }].map((b, i) => (
-              <li key={i} className="card overflow-hidden hover-lift">
-                <div className="aspect-[16/9] bg-gradient-to-br from-slate-800/50 to-slate-900/30" />
-                <div className="p-4">
-                  <div className="text-xs text-muted">{b.date}</div>
-                  <div className="mt-1 font-semibold">{b.title}</div>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="flex items-center justify-between">
+            <h2 className="h2 section-title">From the Community</h2>
+            <Link to="/community" className="text-sm text-teal-300 hover:underline">Open Community</Link>
+          </div>
+          {trendingPosts.length === 0 ? (
+            <div className="text-sm text-gray-400 mt-4">No posts yet. Visit the Community to get started.</div>
+          ) : (
+            <ul className="mt-6 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+              {trendingPosts.map(p => (
+                <li key={p.id} className="card overflow-hidden hover-lift">
+                  <a href={`/community/${p.id}`} className="block">
+                    <div className="aspect-[16/10] bg-gray-800/60 relative">
+                      {p.image ? (
+                        <img src={p.image} alt="post" className="w-full h-full object-cover" />
+                      ) : p.video ? (
+                        (() => { const id = youTubeId(p.video); return id ? (
+                          <img src={`https://img.youtube.com/vi/${id}/hqdefault.jpg`} alt="video thumb" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-black grid place-items-center text-xs text-gray-400">Video</div>
+                        )})()
+                      ) : (
+                        <div className="w-full h-full grid place-items-center text-xs text-gray-500">Post</div>
+                      )}
+                      {p.video && (
+                        <div className="absolute inset-0 grid place-items-center">
+                          <div className="h-10 w-10 rounded-full bg-black/60 grid place-items-center">
+                            <ion-icon name="play" className="text-white"></ion-icon>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3 text-xs">
+                      <div className="line-clamp-2 text-gray-200">{p.text || 'Untitled post'}</div>
+                      <div className="text-[11px] text-gray-500 mt-1">{new Date(p.createdAt).toLocaleDateString()}</div>
+                    </div>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
 
