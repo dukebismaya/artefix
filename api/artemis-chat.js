@@ -15,11 +15,12 @@ export default async function handler(req, res) {
     const { messages, context } = body || {}
     if (!Array.isArray(messages)) return res.status(400).json({ error: 'messages must be an array' })
 
-    const base = process.env.AI_API_BASE
-    const key = process.env.AI_API_KEY
-    const model = process.env.AI_MODEL || 'gpt-4o-mini'
-    const hfToken = process.env.HF_TOKEN
-    const hfChatModel = process.env.HF_CHAT_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3'
+  const base = process.env.AI_API_BASE
+  const key = process.env.AI_API_KEY
+  const model = process.env.AI_MODEL || 'gpt-4o-mini'
+  const hfToken = process.env.HF_TOKEN
+  const hfChatModel = process.env.HF_CHAT_MODEL || 'mistralai/Mistral-7B-Instruct-v0.3'
+  const t0 = Date.now()
 
     // Provider priority: OpenAI-compatible -> Hugging Face Inference API -> local fallback
     if (!base || !key) {
@@ -28,15 +29,18 @@ export default async function handler(req, res) {
         const prompt = toHuggingFacePrompt(sys, messages)
         try {
           const reply = await hfGenerate(hfChatModel, hfToken, prompt)
-          return res.status(200).json({ reply, provider: 'huggingface' })
+          const elapsedMs = Date.now() - t0
+          return res.status(200).json({ reply, provider: 'huggingface', note: 'ok', elapsedMs })
         } catch (e) {
           console.error('HF chat error', e)
           const reply = localFallback(messages, context)
-          return res.status(200).json({ reply, provider: 'local-fallback' })
+          const elapsedMs = Date.now() - t0
+          return res.status(200).json({ reply, provider: 'local-fallback', note: e?.message || 'hf-error', elapsedMs })
         }
       } else {
         const reply = localFallback(messages, context)
-        return res.status(200).json({ reply, provider: 'local-fallback' })
+        const elapsedMs = Date.now() - t0
+        return res.status(200).json({ reply, provider: 'local-fallback', note: 'no-provider', elapsedMs })
       }
     }
 
@@ -61,7 +65,8 @@ export default async function handler(req, res) {
     }
     const data = await r.json()
     const reply = data?.choices?.[0]?.message?.content || 'I’m here to help.'
-    return res.status(200).json({ reply, provider: 'openai-compatible' })
+    const elapsedMs = Date.now() - t0
+    return res.status(200).json({ reply, provider: 'openai-compatible', note: 'ok', elapsedMs })
   } catch (e) {
     console.error('artemis-chat error', e)
     return res.status(500).json({ error: e?.message || 'Server error' })

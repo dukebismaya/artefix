@@ -42,6 +42,9 @@ export default function Artemis() {
   const [showSettings, setShowSettings] = useState(false)
   const [typing, setTyping] = useState(false)
   const [provider, setProvider] = useState('')
+  const [connStatus, setConnStatus] = useState('idle') // idle | connecting | connected | failed
+  const [lastLatency, setLastLatency] = useState(0)
+  const [lastNote, setLastNote] = useState('')
   const scrollRef = useRef(null)
 
   // Persist panel state and messages
@@ -74,6 +77,7 @@ export default function Artemis() {
     const ctx = context()
     const greet = initialGreeting(ctx)
     setMessages([{ role: 'assistant', content: greet }])
+    setConnStatus('idle')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, settings.muted])
 
@@ -130,14 +134,21 @@ export default function Artemis() {
     setInput('')
     const ctx = context()
     setTyping(true)
+    setConnStatus('connecting')
     try {
-      const { reply, provider } = await artemisAsk({ messages: [...messages, userMsg], context: ctx })
+      const { reply, provider, elapsedMs, note } = await artemisAsk({ messages: [...messages, userMsg], context: ctx })
       setProvider(provider || '')
+      setLastLatency(elapsedMs || 0)
+      setLastNote(note || '')
+      setConnStatus(provider && provider !== 'local-fallback' ? 'connected' : 'failed')
       setMessages(prev => [...prev, { role: 'assistant', content: reply }])
     } catch (e) {
       // Fallback to local rule-based
       const a = answer(text, ctx)
       setProvider('local-fallback')
+      setLastLatency(0)
+      setLastNote(e?.message || 'request-error')
+      setConnStatus('failed')
       setMessages(prev => [...prev, { role: 'assistant', content: a }])
     } finally {
       setTyping(false)
@@ -276,11 +287,13 @@ export default function Artemis() {
                     View Product
                   </button>
                 )}
-                {provider && (
-                  <span className="text-[11px] px-2 py-1 rounded-full bg-gray-800/70 text-gray-200" title="Provider">
-                    {provider.includes('openai') ? 'Cloud' : provider.includes('local') ? 'Local' : provider}
-                  </span>
-                )}
+                {/* Connection status and provider chip */}
+                <span className={`text-[11px] px-2 py-1 rounded-full ${connStatus==='connected' ? 'bg-teal-700 text-white' : connStatus==='connecting' ? 'bg-amber-600 text-white' : connStatus==='failed' ? 'bg-rose-700 text-white' : 'bg-gray-700 text-gray-100'}`} title={lastNote || 'Connection status'}>
+                  {connStatus==='connecting' && 'Connecting…'}
+                  {connStatus==='connected' && `Connected ${lastLatency?`(${lastLatency}ms)`:''}`}
+                  {connStatus==='failed' && (provider==='local-fallback' ? 'Local (fallback)' : 'Failed')}
+                  {connStatus==='idle' && (provider ? (provider.includes('openai') ? 'Cloud' : provider.includes('huggingface') ? 'HuggingFace' : 'Local') : 'Idle')}
+                </span>
                 <div className="relative">
                   <button className="btn btn-outline btn-sm" onClick={() => setShowSettings(v => !v)} title="Settings">Settings</button>
                   {showSettings && (
