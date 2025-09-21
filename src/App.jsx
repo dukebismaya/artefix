@@ -28,6 +28,7 @@ import UploadWorkshop from './pages/UploadWorkshop.jsx'
 import WorkshopDetail from './pages/WorkshopDetail.jsx'
 import { CommunityProvider } from './context/CommunityContext.jsx'
 import Community from './pages/Community.jsx'
+import Artemis from './components/Artemis.jsx'
 
 function App() {
   return (
@@ -83,6 +84,7 @@ function App() {
             </main>
             <Footer />
           </div>
+          <Artemis />
                   </CommunityProvider>
                 </WorkshopsProvider>
               </ChatProvider>

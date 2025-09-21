@@ -36,6 +36,48 @@ Requests:
 	- `{ type: "image", image: "<public URL or data:URI>", model?: "..." }`
 Response: `{ vector: number[] }`
 
+### Artemis Assistant (chat) – Local setup
+Artemis is available everywhere in the UI (floating button). It works in two modes:
+
+1) Fallback (no server config): Uses built‑in, rule‑based guidance. No keys, runs out of the box.
+2) Connected mode (recommended): Uses a serverless `/api/artemis-chat` proxy to an OpenAI‑compatible provider for high‑quality answers.
+
+Serverless endpoint: `api/artemis-chat.js`
+- Provider priority (no code changes needed):
+	1) OpenAI‑compatible (if `AI_API_BASE` and `AI_API_KEY` are set)
+	2) Hugging Face Inference API (if `HF_TOKEN` is set)
+	3) Local rule‑based fallback (no keys)
+
+Configure environment variables in your deployment (or local serverless runtime):
+- OpenAI‑compatible:
+	- `AI_API_BASE` (e.g., `https://api.openai.com/v1`)
+	- `AI_API_KEY`
+	- `AI_MODEL` (default: `gpt-4o-mini`)
+- Hugging Face:
+	- `HF_TOKEN` (required)
+	- `HF_CHAT_MODEL` (optional, default: `mistralai/Mistral-7B-Instruct-v0.3`)
+
+Local testing options:
+- Option A (simple): Run `npm run dev`. Artemis will use the fallback if no remote is set.
+- Option B (proxy to deployed API): Set in `.env.local`:
+	```env
+	VITE_ARTEMIS_CHAT_URL=https://your-app.vercel.app/api/artemis-chat
+	```
+	Then run `npm run dev`; Artemis will call the remote API while you develop locally.
+
+Run serverless locally (optional):
+- Using Vercel CLI:
+	```powershell
+	npm i -g vercel
+	vercel dev
+	```
+	This serves both the Vite app and `/api/*`. Set env vars with `vercel env add` (or a `.env` that your runtime loads), e.g.:
+	- `AI_API_BASE=https://api.openai.com/v1`
+	- `AI_API_KEY=...`
+	- `AI_MODEL=gpt-4o-mini`
+
+Environment examples: see `.env.example` for commonly used variables.
+
 ### Deploying to Vercel
 1) Import the repo in Vercel
 2) Framework Preset: Vite
@@ -43,6 +85,7 @@ Response: `{ vector: number[] }`
 4) Set Environment Variables:
 	 - `HF_TOKEN` = your Hugging Face token
 	 - optionally `HF_CLIP_MODEL`
+ 	 - Artemis chat (optional but recommended): `AI_API_BASE`, `AI_API_KEY`, `AI_MODEL`
 5) Deploy
 
 Vercel will expose the function at `/api/clip-embed`, used automatically when “Use cloud embeddings” is enabled in `/ai`.

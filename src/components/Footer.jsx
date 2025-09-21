@@ -28,12 +28,12 @@ export default function Footer() {
             <ul className="mt-2 space-y-1 text-gray-400">
               <li><a href="#">Help Center</a></li>
               <li><a href="#">Contact Us</a></li>
-              <li><a href="#">Community</a></li>
+              <li><a href="./community">Community</a></li>
             </ul>
             <div className="mt-3 flex gap-3 text-gray-400">
-              <a href="#" aria-label="Twitter" className="hover:text-teal-300">Twitter</a>
+              <a href="#" aria-label="X" className="hover:text-teal-300">X</a>
               <a href="#" aria-label="Instagram" className="hover:text-teal-300">Instagram</a>
-              <a href="#" aria-label="GitHub" className="hover:text-teal-300">GitHub</a>
+              <a href="https://github.com/dukebismaya/artefix" aria-label="GitHub" className="hover:text-teal-300">GitHub</a>
             </div>
           </div>
         </div>

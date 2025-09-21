@@ -271,6 +271,10 @@ export default function ProductDetail() {
               <div className="mt-3">
                 <button className="btn btn-secondary" type="button" onClick={() => setShowPoster(true)}>Share Poster</button>
                 <button className="btn btn-outline ml-2" type="button" onClick={() => setShowChat(true)}>Chat with Artisan</button>
+                <button className="btn btn-outline ml-2" type="button" title="Ask Artemis about this product"
+                        onClick={() => window.dispatchEvent(new CustomEvent('artemis:open', { detail: { productId: product?.id } }))}>
+                  Ask Artemis
+                </button>
               </div>
             </div>
           )}
