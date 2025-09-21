@@ -50,6 +50,10 @@ export default function ProductCard({ product }) {
     try { push(wished ? 'Removed from wishlist' : 'Added to wishlist', 'info') } catch {}
   }
 
+  const originalPrice = product.price
+  const markedUpPrice = originalPrice * 1.3
+  const discountPercentage = Math.round(((markedUpPrice - originalPrice) / markedUpPrice) * 100)
+
   return (
     <div className="card overflow-hidden group">
       <div className="relative aspect-[4/3] overflow-hidden">
@@ -65,6 +69,9 @@ export default function ProductCard({ product }) {
             <button className="btn btn-danger px-3 py-1.5" onClick={onDelete}>Delete</button>
           </div>
         )}
+        <div className="absolute top-2 left-2">
+          <div className="badge bg-rose-500 border-rose-500/50 text-white">{discountPercentage}% Off</div>
+        </div>
       </div>
       <div className="p-4">
         <h3 className="text-lg font-semibold line-clamp-1">{product.name}</h3>
@@ -75,7 +82,10 @@ export default function ProductCard({ product }) {
           <p className="mt-2 text-sm text-gray-300 line-clamp-2">{product.description}</p>
         )}
         <div className="mt-3 flex items-center justify-between gap-3">
-          <span className="text-xl font-bold">{formatINR(product.price)}</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-xl font-bold">{formatINR(originalPrice)}</span>
+            <span className="text-sm text-muted line-through">{formatINR(markedUpPrice)}</span>
+          </div>
           <div className="flex items-center gap-2">
             {/* Wishlist */}
             <button

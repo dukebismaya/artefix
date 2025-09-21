@@ -131,7 +131,13 @@ export default function Home() {
       {/* Hero content */}
       <section className="relative z-10 pt-24 pb-20 sm:pt-28 sm:pb-28">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight drop-shadow-xl animate-slide-up gradient-text">
+        <div className="flex justify-center" style={{animationDelay: '200ms'}}>
+      <div className="pill inline-flex items-center gap-2 bg-gradient-to-r from-rose-500 to-rose-400 border-rose-500/50 animate-slide-up">
+        <span className="text-sm font-semibold text-white">Sale is Live!</span>
+        <span className="text-xs text-white/80">Discounts up to 30%</span>
+      </div>
+    </div>
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight drop-shadow-xl animate-slide-up gradient-text mt-4">
             Artifex — Handcrafted, Perfected by AI
           </h1>
           <p className="mt-4 sm:mt-6 text-base sm:text-xl text-gray-200 max-w-3xl mx-auto animate-slide-up" style={{animationDelay:'100ms'}}>
