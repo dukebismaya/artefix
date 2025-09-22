@@ -49,7 +49,7 @@ export default async function handler(req, res) {
 
     // If explicitly forced to a provider, try it first
     if (forcedProvider === 'openai' && openaiAvailable) {
-      const sys = systemPrompt(context)
+      const sys = systemPrompt(context, options)
       const payload = {
         model,
         messages: [
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
         // If forced provider fails, do not cascade silently; fall back to HF if available, else local
         if (hfAvailable) {
           try {
-            const sys2 = systemPrompt(context)
+            const sys2 = systemPrompt(context, options)
             const prompt2 = toHuggingFacePrompt(sys2, messages)
             const reply2 = await hfGenerate(hfChatModel, hfToken, prompt2)
             const elapsedMs = Date.now() - t0
@@ -89,7 +89,7 @@ export default async function handler(req, res) {
     }
 
     if (forcedProvider === 'huggingface' && hfAvailable) {
-      const sys = systemPrompt(context)
+      const sys = systemPrompt(context, options)
       const prompt = toHuggingFacePrompt(sys, messages)
       try {
         const reply = await hfGenerate(hfChatModel, hfToken, prompt)
@@ -106,7 +106,7 @@ export default async function handler(req, res) {
         }
         // If forced HF fails and OpenAI is available, try OpenAI before local
         if (openaiAvailable) {
-          const sys2 = systemPrompt(context)
+          const sys2 = systemPrompt(context, options)
           const payload2 = {
             model,
             messages: [
@@ -139,7 +139,7 @@ export default async function handler(req, res) {
     // Provider priority: OpenAI-compatible -> Hugging Face Inference API -> local fallback
     if (!openaiAvailable) {
       if (hfAvailable) {
-        const sys = systemPrompt(context)
+        const sys = systemPrompt(context, options)
         const prompt = toHuggingFacePrompt(sys, messages)
         try {
           const reply = await hfGenerate(hfChatModel, hfToken, prompt)
@@ -168,7 +168,7 @@ export default async function handler(req, res) {
       }
     }
 
-    const sys = systemPrompt(context)
+    const sys = systemPrompt(context, options)
     const payload = {
       model,
       messages: [
@@ -197,13 +197,14 @@ export default async function handler(req, res) {
   }
 }
 
-function systemPrompt(ctx) {
+function systemPrompt(ctx, options) {
   const { path, product, role } = ctx || {}
-  const basics = `You are Artemis, a friendly assistant for an artisan marketplace. Be concise, kind, and helpful. Never invent unavailable product specifics (dimensions, materials) — instead, suggest asking the artisan.`
+  const personaStyle = options?.persona || 'friendly and helpful';
+  const basics = `You are Artemis, an AI assistant for an artisan marketplace. Your personality is ${personaStyle}. Be concise, kind, and helpful. Never invent unavailable product specifics (dimensions, materials) — instead, suggest asking the artisan.`
   const page = path ? `Current page: ${path}.` : ''
   const prod = product ? `Product: ${product.name} • Category: ${product.category || ''} • Price: ₹${product.price ?? ''} • Stock: ${product.stock ?? ''} • Origin: ${product.region || ''} • Techniques: ${(product.techniques || []).join(', ')}` : 'Product: none.'
-  const persona = role ? `User role: ${role}.` : ''
-  return `${basics}\n${page}\n${prod}\n${persona}\nGuidelines: Help with materials/care/gifting/delivery generally; for exact details, recommend “Chat with Artisan.”`
+  const userRole = role ? `User role: ${role}.` : ''
+  return `${basics}\n${page}\n${prod}\n${userRole}\nGuidelines: Help with materials/care/gifting/delivery generally; for exact details, recommend “Chat with Artisan.”`
 }
 
 function localFallback(messages, context) {
@@ -229,7 +230,7 @@ function toHuggingFacePrompt(system, messages) {
     if (m.role === 'assistant') hist.push(`Assistant: ${m.content}`)
     else hist.push(`User: ${m.content}`)
   }
-  parts.push(hist.join('\n'))
+  parts.push( hist.join('\n'))
   parts.push('\nAssistant:')
   return parts.join('\n')
 }

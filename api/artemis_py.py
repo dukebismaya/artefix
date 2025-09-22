@@ -46,13 +46,15 @@ def to_hf_prompt(system: str, messages: list) -> str:
     return "\n".join(parts)
 
 
-def system_prompt(ctx: dict) -> str:
+def system_prompt(ctx: dict, options: dict) -> str:
     ctx = ctx or {}
+    options = options or {}
     path = ctx.get('path')
     product = ctx.get('product') or {}
     role = ctx.get('role')
+    persona_style = options.get('persona', 'friendly and helpful')
     basics = (
-        "You are Artemis, a friendly assistant for an artisan marketplace. "
+        f"You are Artemis, an AI assistant for an artisan marketplace. Your personality is {persona_style}. "
         "Be concise, kind, and helpful. Never invent unavailable product specifics "
         "(dimensions, materials) — instead, suggest asking the artisan."
     )
@@ -65,9 +67,9 @@ def system_prompt(ctx: dict) -> str:
         )
     else:
         prod = 'Product: none.'
-    persona = f"User role: {role}." if role else ''
+    user_role = f"User role: {role}." if role else ''
     return (
-        f"{basics}\n{page}\n{prod}\n{persona}\n"
+        f"{basics}\n{page}\n{prod}\n{user_role}\n"
         "Guidelines: Help with materials/care/gifting/delivery generally; for exact details, recommend “Chat with Artisan.”"
     )
 
@@ -297,7 +299,7 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({'reply': reply, 'provider': 'local-fallback', 'note': 'no-hf-token', 'elapsedMs': elapsed, 'traceId': trace_id}).encode('utf-8'))
             return
 
-        sys_prompt = system_prompt(context)
+        sys_prompt = system_prompt(context, options)
         prompt = to_hf_prompt(sys_prompt, messages)
         # Try a small chain of models: primary -> fallback -> TinyLlama
         models = [m for m in [hf_chat_model, hf_fallback_model, 'TinyLlama/TinyLlama-1.1B-Chat-v1.0'] if m]

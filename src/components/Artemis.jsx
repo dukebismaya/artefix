@@ -125,26 +125,10 @@ export default function Artemis() {
   }
 
   function initialGreeting(ctx) {
-    const name = ctx.user?.name || (ctx.role === 'seller' ? 'Seller' : ctx.role === 'buyer' ? 'Buyer' : 'there')
-    if (ctx.product) {
-      return `Hi ${name}, I’m Artemis. I can guide you about “${ctx.product.name}” — materials, care, use cases, gifting ideas, delivery, and more. Ask me anything or tap a suggestion below.`
-    }
-    if (ctx.path.startsWith('/marketplace')) {
-      return `Hi ${name}, I’m Artemis. Tell me what you’re looking for (e.g., “wooden bowl under ₹1000” or “gifts for mom”), and I’ll guide you.`
-    }
-    if (ctx.path.startsWith('/cart')) {
-      return `Hi ${name}, I can help review your cart, suggest quantities, or explain shipping, returns, and secure payment.`
-    }
-    if (ctx.path.startsWith('/checkout')) {
-      return `Hi ${name}, I can walk you through checkout, address tips, and payment safety. Ask anything.`
-    }
-    if (ctx.path.startsWith('/workshops')) {
-      return `Hi ${name}, curious about workshops? I can explain how to join, what to expect, and materials needed.`
-    }
-    if (ctx.path.startsWith('/community')) {
-      return `Hi ${name}, welcome to the community. I can help you discover posts, engage respectfully, and support artisans.`
-    }
-    return `Hi ${name}, I’m Artemis, your guide across Artifex. Ask about products, delivery, gifting, your cart, or how to contact artisans.`
+    const name = ctx.user?.name || (ctx.role === 'seller' ? 'Seller' : ctx.role === 'buyer' ? 'Buyer' : 'there');
+    const base = `Hello ${name}, I'm Artemis. `;
+    if (ctx.product) return `${base}I can help with questions about "${ctx.product.name}", like materials, care, or delivery.`
+    return `${base}How can I help you today?`
   }
 
   async function sendUser(q) {
@@ -186,8 +170,8 @@ export default function Artemis() {
       setProvider(provider || '')
       setLastLatency(elapsedMs || 0)
       setLastNote(note || '')
-  setLastModel(modelUsed || '')
-  setLastTrace(traceId || '')
+      setLastModel(modelUsed || '')
+      setLastTrace(traceId || '')
       try {
         // Attempt to extract extra info from the last fetch via headers
         // Not directly available here; we rely on body fields only.
@@ -211,6 +195,9 @@ export default function Artemis() {
 
   function answer(q, ctx) {
     const t = q.toLowerCase()
+
+    // Basic greetings
+    if (/^(hi|hello|hey)$/.test(t)) return `Hello! I'm Artemis, your friendly guide. How can I help?`
 
     // Navigation intents
     if (/go to cart|open cart|my cart/.test(t)) { nav('/cart'); return 'Opening your cart. I can help you review items or adjust quantities.' }
@@ -314,24 +301,26 @@ export default function Artemis() {
       {/* Floating open button */}
       {!open && (
         <button
-          className="fixed z-40 bottom-5 right-5 rounded-full w-14 h-14 bg-indigo-600 text-white shadow-xl hover:bg-indigo-500 active:scale-[0.98] focus:outline-none"
+          className="fixed z-40 bottom-5 right-5 w-16 h-16 bg-transparent text-white focus:outline-none transition-transform hover:scale-110 active:scale-95"
           title="Chat with Artemis"
           onClick={() => setOpen(true)}
           aria-label="Open Artemis assistant"
         >
-          <span className="text-lg font-semibold">A</span>
+          <img src="/icons/chatbot.png" alt="Chat" className="w-full h-full" />
         </button>
       )}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-3 py-6 bg-black/50 animate-fade-in">
-          <div className="card w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200/60 dark:border-gray-800/60">
+          <div className="card w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col bg-white dark:bg-gray-900">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-indigo-600 text-white grid place-items-center font-semibold">A</div>
+                <div className="w-9 h-9 rounded-full bg-teal-600 text-white grid place-items-center">
+                  <img src="/icons/chatbot.png" alt="Chat" className="w-6 h-6" />
+                </div>
                 <div>
                   <div className="font-semibold">Artemis</div>
-                  <div className="text-xs text-gray-400">Your AI guide</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Your AI guide</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -389,39 +378,37 @@ export default function Artemis() {
                 <button className="btn btn-secondary btn-sm" onClick={() => setOpen(false)}>Close</button>
               </div>
             </div>
-            <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-3 p-4 bg-transparent">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-3 p-4 bg-gray-100 dark:bg-gray-800">
               {messages.length === 0 && (
-                <div className="text-sm text-gray-400">Say hello to start…</div>
+                <div className="text-sm text-center text-gray-400 py-8">Say hello to start…</div>
               )}
               {messages.map((m, i) => (
-                <div key={i} className={m.role === 'assistant' ? 'flex justify-start' : 'flex justify-end'}>
-                  <div className={m.role === 'assistant' ? 'bg-indigo-50 text-gray-800 dark:bg-indigo-900/40 dark:text-indigo-50' : 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'}>
-                    <div className={`px-3 py-2 rounded-2xl ${m.role === 'assistant' ? 'rounded-tl-sm' : 'rounded-tr-sm'}`}>
-                      <p>{m.content}</p>
-                      {m.imageDataUri && (
-                        <div className="mt-2">
-                          <img src={m.imageDataUri} alt="Generated" className="max-h-72 rounded-lg border border-black/10" />
-                        </div>
-                      )}
-                    </div>
+                <div key={i} className={`flex ${m.role === 'assistant' ? 'justify-start' : 'justify-end'}`}>
+                  <div className={`px-4 py-2 rounded-2xl max-w-[90%] sm:max-w-[70%] ${m.role === 'assistant' ? 'bg-teal-50 text-gray-800 dark:bg-teal-900/60 dark:text-teal-50 rounded-bl-sm' : 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 rounded-br-sm'}`}>
+                    <p className="text-sm whitespace-pre-wrap">{m.content}</p>
+                    {m.imageDataUri && (
+                      <div className="mt-2">
+                        <img src={m.imageDataUri} alt="Generated" className="max-h-72 rounded-lg border border-black/10" />
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
               {typing && (
                 <div className="flex justify-start">
-                  <div className="bg-indigo-50 text-gray-800 dark:bg-indigo-900/40 dark:text-indigo-50">
-                    <p className="px-3 py-2 rounded-2xl rounded-tl-sm">Typing…</p>
+                  <div className="bg-teal-50 text-gray-800 dark:bg-teal-900/60 dark:text-teal-50 px-4 py-2 rounded-2xl rounded-bl-sm">
+                    <p className="text-sm">Typing…</p>
                   </div>
                 </div>
               )}
             </div>
             {/* Suggestions */}
-            <div className="px-4 pb-2 flex flex-wrap gap-2">
+            <div className="px-4 pt-2 pb-3 flex flex-wrap gap-2 border-t border-gray-200/80 dark:border-gray-800/80">
               {suggestions.map((s, idx) => (
                 <button key={idx} className="btn btn-chip" type="button" onClick={() => sendUser(s)}>{s}</button>
               ))}
             </div>
-            <div className="border-t border-gray-200/60 dark:border-gray-800/60 p-3">
+            <div className="border-t border-gray-200 dark:border-gray-800 p-3">
               <div className="flex items-center gap-2">
                 <textarea
                   value={input}
