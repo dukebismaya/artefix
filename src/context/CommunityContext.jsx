@@ -60,6 +60,24 @@ export function CommunityProvider({ children }) {
         localStorage.setItem('apma_community_seed_v1', '1')
       }
     } catch {}
+    // Migration: if earlier seeds used placeholder Drive IDs, replace them with the canonical URLs
+    try {
+      const canonicalById = {
+        'seed-welcome': 'https://drive.google.com/file/d/1oGwKLPEpm3bzJg4lQtXzvnNJpqF5X-bn/view?usp=sharing',
+        'seed-process': 'https://drive.google.com/file/d/1hQhMTWHSX3Mr3ix_KtlksW9MEX7zUAi-/view?usp=sharing',
+        'seed-workshops': 'https://drive.google.com/file/d/17ePsfRklxqkETSbBtCZmJxBInEj7JzGA/view?usp=sharing',
+      }
+      const hasPlaceholder = (s) => typeof s === 'string' && /PLACEHOLDER/i.test(s)
+      const fixedPosts = (initial.posts || []).map(p => {
+        if (canonicalById[p.id] && hasPlaceholder(p.video)) {
+          return { ...p, video: canonicalById[p.id] }
+        }
+        return p
+      })
+      if (fixedPosts !== initial.posts) {
+        initial = { ...initial, posts: fixedPosts }
+      }
+    } catch {}
     return initial
   })
 

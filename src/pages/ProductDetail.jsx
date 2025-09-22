@@ -158,7 +158,7 @@ export default function ProductDetail() {
         <div>
           <h2 className="text-2xl font-bold">{product.name}</h2>
           <div className="mt-1 text-sm text-gray-400">{product.category}</div>
-          <div className="mt-1 text-xs text-gray-400">Sold by {isOwnerSeller ? 'You' : (users?.sellers?.find(s=>s.id===product.sellerId)?.name || 'Artisan')}</div>
+          <div className="mt-1 text-xs text-gray-400">Sold by {isOwnerSeller ? 'You' : (users?.sellers?.find(s=>s.id===product.sellerId)?.name || product.sellerName || 'Artisan')}</div>
           {sellerVideo && (
             <div className="mt-3">
               <div className="text-sm font-medium">Meet the Artisan</div>
@@ -270,7 +270,9 @@ export default function ProductDetail() {
               </div>
               <div className="mt-3">
                 <button className="btn btn-secondary" type="button" onClick={() => setShowPoster(true)}>Share Poster</button>
-                <button className="btn btn-outline ml-2" type="button" onClick={() => setShowChat(true)}>Chat with Artisan</button>
+                {product?.sellerId && (
+                  <button className="btn btn-outline ml-2" type="button" onClick={() => setShowChat(true)}>Chat with Artisan</button>
+                )}
                 <button className="btn btn-outline ml-2" type="button" title="Ask Artemis about this product"
                         onClick={() => window.dispatchEvent(new CustomEvent('artemis:open', { detail: { productId: product?.id } }))}>
                   Ask Artemis
@@ -290,7 +292,7 @@ export default function ProductDetail() {
               </div>
             </div>
           )}
-          {showChat && auth?.role==='buyer' && (
+          {showChat && auth?.role==='buyer' && product?.sellerId && (
             <DirectChat
               buyerId={user?.id}
               sellerId={product?.sellerId}
@@ -321,13 +323,24 @@ function toVimeoEmbed(url) {
 function toDriveEmbed(url) {
   try {
     const u = new URL(url)
+    // Extract file id from /file/d/{id}/... or from ?id=...
+    let fileId = null
     if (u.pathname.startsWith('/file/d/')) {
-      const parts = u.pathname.split('/')
-      const fileId = parts[3]
-      if (fileId) return `https://drive.google.com/file/d/${fileId}/preview`
+      const parts = u.pathname.split('/') // ['', 'file', 'd', '{id}', 'view' | ...]
+      fileId = parts[3] || null
+    } else {
+      fileId = u.searchParams.get('id')
     }
-    const id = u.searchParams.get('id')
-    if (id) return `https://drive.google.com/file/d/${id}/preview`
+    if (fileId) {
+      // Preserve Google's resource key (and a couple of safe params) to avoid 404 after the 2021 security update
+      const qp = new URLSearchParams()
+      const resourceKey = u.searchParams.get('resourcekey')
+      const authuser = u.searchParams.get('authuser')
+      if (resourceKey) qp.set('resourcekey', resourceKey)
+      if (authuser) qp.set('authuser', authuser)
+      const qs = qp.toString()
+      return `https://drive.google.com/file/d/${fileId}/preview${qs ? `?${qs}` : ''}`
+    }
   } catch {}
   return url
 }

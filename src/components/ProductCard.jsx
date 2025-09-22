@@ -6,7 +6,7 @@ import { formatINR } from '../utils/format.js'
 import { useUI } from '../context/UIContext.jsx'
 import { useToast } from './Toast.jsx'
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, disableActions = false, badgeLabel, showDiscountBadge = true }) {
   // No local AI modal; AI Studio is global
   const { removeProduct } = useProducts()
   const { auth, currentUser } = useAuth()
@@ -15,7 +15,7 @@ export default function ProductCard({ product }) {
   const me = currentUser?.()
   const navigate = useNavigate()
   const isSeller = auth?.role === 'seller'
-  const canManage = isSeller && me?.id && product.sellerId === me.id
+  const canManage = !disableActions && isSeller && me?.id && product.sellerId === me.id
   const isOwner = canManage
 
   function onDelete() {
@@ -58,7 +58,7 @@ export default function ProductCard({ product }) {
     <div className="card overflow-hidden group">
       <div className="relative aspect-[4/3] overflow-hidden">
         {product.image ? (
-          <img src={product.image} alt={product.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"/>
+          <img src={product.image} alt={product.name} loading="lazy" decoding="async" fetchpriority="low" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"/>
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-indigo-100 to-pink-100 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center text-sm text-gray-500">No image</div>
         )}
@@ -70,7 +70,11 @@ export default function ProductCard({ product }) {
           </div>
         )}
         <div className="absolute top-2 left-2">
-          <div className="badge bg-rose-500 border-rose-500/50 text-white">{discountPercentage}% Off</div>
+          {badgeLabel ? (
+            <div className="badge bg-sky-600/90 border-sky-400/50 text-white">{badgeLabel}</div>
+          ) : showDiscountBadge ? (
+            <div className="badge bg-rose-500 border-rose-500/50 text-white">{discountPercentage}% Off</div>
+          ) : null}
         </div>
       </div>
       <div className="p-4">
@@ -86,6 +90,7 @@ export default function ProductCard({ product }) {
             <span className="text-xl font-bold">{formatINR(originalPrice)}</span>
             <span className="text-sm text-muted line-through">{formatINR(markedUpPrice)}</span>
           </div>
+          {!disableActions && (
           <div className="flex items-center gap-2">
             {/* Wishlist */}
             <button
@@ -120,6 +125,7 @@ export default function ProductCard({ product }) {
 
             {/* Ask AI removed: replaced by global AI Studio */}
           </div>
+          )}
         </div>
       </div>
 

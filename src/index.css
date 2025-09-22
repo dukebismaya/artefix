@@ -4,17 +4,17 @@
 :root {
   color-scheme: dark;
   /* Minimalist palette */
-  --bg-0: #05070d;      /* base background */
-  --bg-1: #0a0f1a;      /* surface gradient start */
-  --bg-2: #0b1220;      /* cool tint */
-  --surface: rgba(18, 24, 38, 0.6);
-  --surface-strong: rgba(18, 24, 38, 0.8);
-  --border: rgba(100, 116, 139, 0.22);
-  --ring: rgba(56, 189, 248, 0.35); /* sky-400-ish */
+  --bg-0: #060608;      /* base background (neutral black) */
+  --bg-1: #0b0d12;      /* surface gradient start (less blue) */
+  --bg-2: #0d1016;      /* subtle tint */
+  --surface: rgba(10, 12, 16, 0.62);         /* glass surface, neutral */
+  --surface-strong: rgba(10, 12, 16, 0.84);  /* stronger glass */
+  --border: rgba(148, 163, 184, 0.16);       /* subtle neutral border */
+  --ring: rgba(148, 163, 184, 0.35);         /* neutral ring, less blue */
   --text: #e5e7eb;      /* gray-200 */
   --muted: #94a3b8;     /* slate-400 */
-  --accent-1: #38bdf8;  /* sky-400 */
-  --accent-2: #22d3ee;  /* cyan-400 */
+  --accent-1: #60a5fa;  /* blue-400 (toned) */
+  --accent-2: #22d3ee;  /* cyan-400 (kept for subtle gradient) */
 }
 
 html, body, #root {
@@ -31,6 +31,31 @@ body {
   @apply antialiased;
 }
 
+/* Smooth, sleek scrolling */
+html { scroll-behavior: smooth }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto }
+}
+
+/* Sleek scrollbar styling (WebKit-based browsers) */
+*::-webkit-scrollbar { width: 10px; height: 10px }
+*::-webkit-scrollbar-track { background: transparent }
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(56,189,248,0.35), rgba(34,211,238,0.25));
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(56,189,248,0.55), rgba(34,211,238,0.45));
+}
+
+/* Firefox scrollbar */
+* { scrollbar-width: thin; scrollbar-color: rgba(56,189,248,0.5) transparent }
+
+/* Anchor offset helper for elements linked by hash */
+.scroll-anchor { scroll-margin-top: 72px }
+
 /* Custom animations */
 @keyframes fade-in {
   from { opacity: 0 }
@@ -46,7 +71,7 @@ body {
 }
 @keyframes kenburns {
   0% { transform: scale(1) translate(0, 0) }
-  100% { transform: scale(1.12) translate(2%, 2%) }
+  100% { transform: scale(1.06) translate(1%, 1%) }
 }
 
 /* Utility classes using Tailwind + custom keyframes */
@@ -61,8 +86,17 @@ body {
 .animate-kenburns-slow { animation: kenburns 18s ease-in-out infinite alternate }
 
 /* Hero layering optimizations to avoid jank */
-.hero-stage { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
+.hero-stage { position: absolute; inset: 0; overflow: hidden; z-index: 0; contain: layout paint; }
 .hero-layer { position: absolute; inset: 0; will-change: opacity, transform; backface-visibility: hidden; transform: translateZ(0); }
+
+/* Defer rendering for offscreen sections (large blocks) */
+.cv-auto { content-visibility: auto; contain-intrinsic-size: 1000px 800px; }
+@media (max-width: 640px) {
+  .cv-auto { contain-intrinsic-size: 1200px 900px; }
+}
+
+/* GPU hint utility for heavy transforms */
+.gpu-hint { will-change: transform, opacity; backface-visibility: hidden; transform: translateZ(0); }
 
 /* Blur-up helper (LQIP-style) */
 .blur-up { filter: blur(10px); transform: scale(1.02); }
@@ -78,7 +112,13 @@ body {
   .animate-fade-in-slow, .animate-fade-out-slow { animation-duration: 600ms; }
 }
 
-.backdrop-blur-soft { @apply backdrop-blur-md; background: var(--surface) }
+/* Reduce heavy animations for users on data saver */
+@media (prefers-reduced-data: reduce) {
+  .animate-kenburns, .animate-kenburns-slow { animation: none !important; }
+}
+
+.backdrop-blur-soft { @apply backdrop-blur-md; background: var(--surface); }
+.header-solid { background: color-mix(in oklab, var(--surface) 92%, transparent); }
 
 /* Elevation + hover utilities */
 .hover-lift { @apply transition-transform duration-200 will-change-transform; transform: translateY(0); }
@@ -93,13 +133,60 @@ body {
 .btn:hover { transform: translateY(-1px) }
 .btn:active { transform: translateY(0) scale(0.98) }
 
+/* 3D nav interactions */
+.nav-3d { position: relative; transform: translateY(0) translateZ(0); transition: transform 180ms ease, box-shadow 240ms ease, background-color 200ms ease, color 200ms ease; will-change: transform; }
+.nav-3d:hover { transform: translateY(-2px); box-shadow: 0 8px 18px -12px rgba(0,0,0,0.6); }
+.nav-3d:active { transform: translateY(0) scale(0.98); box-shadow: 0 6px 12px -12px rgba(0,0,0,0.6) inset; }
+.nav-3d:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); }
+
+.nav-3d-icon { position: relative; transform: translateZ(0); transition: transform 180ms ease, box-shadow 220ms ease, background-color 200ms ease, color 200ms ease; will-change: transform; }
+.nav-3d-icon:hover { transform: translateY(-1.5px); box-shadow: 0 10px 22px -14px rgba(0,0,0,0.55); }
+.nav-3d-icon:active { transform: translateY(0) scale(0.98); box-shadow: 0 6px 16px -12px rgba(0,0,0,0.55) inset; }
+.nav-3d-icon:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-3d, .nav-3d-icon { transition: background-color 200ms ease, color 200ms ease; transform: none !important; box-shadow: none !important; }
+}
+
+/* Glow variants (subtle cyan highlight to fit black-tinted theme) */
+.nav-glow { position: relative; }
+.nav-glow::after {
+  content: ""; position: absolute; left: 10%; right: 10%; bottom: 4px; height: 8px;
+  background: radial-gradient(40% 60% at 50% 50%, rgba(56,189,248,0.25), rgba(34,211,238,0.12) 60%, transparent 70%);
+  filter: blur(8px); opacity: 0; transition: opacity 220ms ease, transform 220ms ease; transform: translateY(2px);
+  pointer-events: none;
+}
+.nav-glow:hover::after { opacity: 1; transform: translateY(0); }
+.nav-glow:active::after { opacity: 0.9; filter: blur(9px); }
+
+.nav-glow-active { position: relative; }
+.nav-glow-active::after {
+  content: ""; position: absolute; left: 8%; right: 8%; bottom: 4px; height: 10px;
+  background: radial-gradient(40% 60% at 50% 50%, rgba(56,189,248,0.35), rgba(34,211,238,0.18) 60%, transparent 72%);
+  filter: blur(10px); opacity: 1; pointer-events: none;
+}
+
+/* Icon glow (ring-style) */
+.nav-glow-icon { position: relative; }
+.nav-glow-icon::after {
+  content: ""; position: absolute; inset: -2px; border-radius: 12px;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(56,189,248,0.25), transparent 70%);
+  filter: blur(8px); opacity: 0; transition: opacity 180ms ease; pointer-events: none;
+}
+.nav-glow-icon:hover::after { opacity: 1; }
+.nav-glow-icon:active::after { opacity: 0.9; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-glow::after, .nav-glow-active::after, .nav-glow-icon::after { transition: opacity 200ms ease; transform: none; }
+}
+
 /* Primary: vibrant sky → cyan gradient with animated shift */
 .btn-primary { @apply text-white; 
-  background-image: linear-gradient(135deg, var(--accent-1) 0%, var(--accent-2) 100%);
+  background-image: linear-gradient(135deg, #111827, #1f2937);
   background-size: 200% 200%;
-  box-shadow: 0 8px 22px -10px rgba(56,189,248,0.45);
+  box-shadow: 0 8px 22px -10px rgba(0,0,0,0.35);
 }
-.btn-primary:hover { background-position: 100% 0; box-shadow: 0 12px 28px -12px rgba(56,189,248,0.6) }
+.btn-primary:hover { background-position: 100% 0; box-shadow: 0 12px 28px -12px rgba(0,0,0,0.5) }
 .btn-primary:focus { box-shadow: 0 0 0 4px var(--ring), 0 10px 26px -14px rgba(56,189,248,0.6) }
 
 /* Secondary: subtle dark gradient with cyan tint on hover */
@@ -120,16 +207,16 @@ body {
 .btn-outline {
   color: #e5e7eb;
   border: 1px solid transparent;
-  background: 
+  background:
     linear-gradient(var(--surface-strong), var(--surface-strong)) padding-box,
-    linear-gradient(135deg, rgba(56,189,248,0.55), rgba(34,211,238,0.4)) border-box;
+    linear-gradient(135deg, rgba(148,163,184,0.35), rgba(148,163,184,0.25)) border-box;
 }
 .btn-outline:hover {
-  color: rgb(186 230 253);
-  background: 
+  color: rgb(226 232 240);
+  background:
     linear-gradient(color-mix(in oklab, var(--surface-strong) 98%, transparent), color-mix(in oklab, var(--surface-strong) 98%, transparent)) padding-box,
-    linear-gradient(135deg, rgba(56,189,248,0.75), rgba(34,211,238,0.55)) border-box;
-  box-shadow: 0 10px 24px -14px rgba(56,189,248,0.35);
+    linear-gradient(135deg, rgba(148,163,184,0.5), rgba(148,163,184,0.35)) border-box;
+  box-shadow: 0 10px 24px -14px rgba(148,163,184,0.28);
 }
 .btn-outline:focus { box-shadow: 0 0 0 4px var(--ring) }
 
@@ -148,7 +235,10 @@ body {
 
 /* Cards */
 .card { border: 1px solid var(--border); background: var(--surface); @apply rounded-2xl shadow-sm hover:shadow-lg transition-shadow backdrop-blur-sm }
+.no-border { border: none !important; }
 .card-gradient { @apply p-[1px] rounded-2xl; background: linear-gradient(135deg, rgba(56,189,248,0.25), rgba(34,211,238,0.18) 50%, rgba(15,23,42,0.2)); }
+.no-shadow { box-shadow: none !important; }
+.no-blur { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 .section-gradient { background: linear-gradient(180deg, color-mix(in oklab, var(--bg-1) 85%, transparent), color-mix(in oklab, var(--bg-0) 90%, transparent)); }
 
 /* Inputs */
@@ -158,18 +248,20 @@ body {
 .section-title { @apply text-lg font-semibold text-gray-100 }
 
 /* Text utilities */
-.gradient-text { @apply bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-cyan-300 }
+.gradient-text { @apply bg-clip-text text-transparent bg-gradient-to-r from-gray-100 to-slate-300 }
 .gradient-text-pink { @apply bg-clip-text text-transparent bg-gradient-to-r from-rose-400 to-pink-400 }
 .gradient-text-blue { @apply bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-indigo-400 }
 .text-muted { color: var(--muted) }
 
 /* Badges & pills */
-.badge { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs; border: 1px solid var(--border); background: color-mix(in oklab, var(--surface) 90%, transparent) }
-.pill { @apply inline-flex items-center rounded-full px-3 py-1 text-sm; border: 1px solid var(--border); background: color-mix(in oklab, var(--surface) 92%, transparent) }
+.badge { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs; border: 1px solid var(--border); background: color-mix(in oklab, var(--surface) 92%, transparent) }
+.pill { @apply inline-flex items-center rounded-full px-3 py-1 text-sm; border: 1px solid var(--border); background: color-mix(in oklab, var(--surface) 94%, transparent) }
 
 /* Modal scroll lock helper */
 .modal-open { overflow: hidden }
 
 /* Footer blending helper to remove hard seam with previous section */
-.footer-blend { position: relative; background: linear-gradient(180deg, color-mix(in oklab, var(--bg-1) 85%, transparent), color-mix(in oklab, var(--bg-0) 92%, transparent)); }
-.footer-blend::before { content: ""; position: absolute; left: 0; right: 0; top: -56px; height: 56px; background: linear-gradient(to top, rgba(10,15,26,0.9), rgba(10,15,26,0)); pointer-events: none; }
+.footer-blend { position: relative; background: var(--bg-0); }
+footer.footer-blend { border-top-width: 0 !important; border-top: 0 !important; box-shadow: none; }
+/* Removed ::before overlay that extended above the footer and appeared as a band/glitter.
+  If a seam blend is needed later, consider adding a small inner shadow instead. */

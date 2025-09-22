@@ -18,6 +18,7 @@ const IMAGES = [
   '/backgrounds/vecteezy_handicrafts-from-rattan-exhibited-by-the-dayak-tribe-the_13856664.jpg',
 ]
 
+
 export default function Home() {
   const { products } = useProducts()
   const { currentUser, auth } = useAuth()
@@ -112,7 +113,7 @@ export default function Home() {
             alt="Artisan background"
             loading="lazy"
             decoding="async"
-            className="hero-layer h-full w-full object-cover opacity-60 animate-fade-out-slow"
+            className="hero-layer h-full w-full object-cover opacity-60 animate-fade-out-slow gpu-hint"
           />
         )}
         <img
@@ -123,7 +124,7 @@ export default function Home() {
           decoding="async"
           fetchPriority="high"
           onLoad={() => setLoadedKey(`cur-${index}`)}
-          className={`hero-layer h-full w-full object-cover opacity-70 animate-fade-in-slow animate-kenburns-slow ${loadedKey===`cur-${index}` ? 'loaded' : 'blur-up'}`}
+          className={`hero-layer h-full w-full object-cover opacity-70 animate-fade-in-slow animate-kenburns-slow gpu-hint ${loadedKey===`cur-${index}` ? 'loaded' : 'blur-up'}`}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/45 to-black/70" />
       </div>
@@ -155,7 +156,7 @@ export default function Home() {
       </section>
 
       {/* Services */}
-      <section className="relative z-10 section-gradient">
+  <section className="relative z-10 section-gradient cv-auto">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
           <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {[
@@ -175,7 +176,7 @@ export default function Home() {
       </section>
 
       {/* Categories */}
-      <section className="relative z-10">
+  <section className="relative z-10 cv-auto">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
           <h2 className="h2 section-title text-center">Shop by Category</h2>
           <ul className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -197,6 +198,9 @@ export default function Home() {
                   <img
                     src={c.img}
                     alt={`${c.key} category`}
+                    loading="lazy"
+                    decoding="async"
+                    fetchpriority="low"
                     className="absolute inset-0 h-full w-full object-cover transform-gpu transition-transform duration-500 ease-out will-change-transform group-hover:scale-110 group-hover:-rotate-[0.5deg] group-hover:-translate-y-0.5"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent transition-colors duration-300 group-hover:from-black/70" />
@@ -212,34 +216,49 @@ export default function Home() {
       </section>
 
       {/* Personalized for you */}
-      <section className="relative z-10">
+  <section className="relative z-10 cv-auto">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
           <div className="flex items-center justify-between gap-2">
             <h2 className="h2 section-title">For You</h2>
             <Link to="/marketplace" className="text-sm text-teal-300 hover:underline">See all</Link>
           </div>
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {personalizeProducts(products, {
-              wishlistIds: wishlist,
-              orders: orders.filter(o => o.buyerId === currentUser()?.id),
-              viewedIds: viewed,
-              preferredRegions: [],
-              preferredTechniques: [],
-            }, { limit: 6, maxPerSeller: 2 }).map(p => (
-              <ProductCard key={p.id} product={p} />
-            ))}
+            {(() => {
+              const real = products.filter(p => !p.isOfficial)
+              const official = products.filter(p => p.isOfficial)
+              const profile = {
+                wishlistIds: wishlist,
+                orders: orders.filter(o => o.buyerId === currentUser()?.id),
+                viewedIds: viewed,
+                preferredRegions: [],
+                preferredTechniques: [],
+              }
+              const src = real.length > 0
+                ? personalizeProducts(real, profile, { limit: 6, maxPerSeller: 2 })
+                : personalizeProducts(official.filter(p => p.officialGroup === 'forYou'), profile, { limit: 6, maxPerSeller: 2 })
+              return src.map(p => (
+                <ProductCard key={p.id} product={p} />
+              ))
+            })()}
           </div>
         </div>
       </section>
 
       {/* Products of the week */}
-      <section className="relative z-10">
+  <section className="relative z-10 cv-auto">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
           <h2 className="h2 section-title">Products of the Week</h2>
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {(products.slice(0,6)).map(p => (
-              <ProductCard key={p.id} product={p} />
-            ))}
+            {(() => {
+              const real = products.filter(p => !p.isOfficial)
+              if (real.length > 0) {
+                const sorted = [...real].sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0))
+                return sorted.slice(0,6).map(p => <ProductCard key={p.id} product={p} />)
+              }
+              const week = products.filter(p => p.isOfficial && p.officialGroup === 'week')
+              week.sort((a,b) => (Number(b.trendScore||0) - Number(a.trendScore||0)) || (new Date(b.createdAt||0) - new Date(a.createdAt||0)))
+              return week.slice(0,6).map(p => <ProductCard key={p.id} product={p} />)
+            })()}
           </div>
           <div className="mt-6 text-center">
             <Link to="/marketplace" className="btn btn-outline">View All Products</Link>
@@ -263,10 +282,10 @@ export default function Home() {
                   <Link to={`/community/${p.id}`} className="block">
                     <div className="aspect-[16/10] bg-gray-800/60 relative">
                       {p.image ? (
-                        <img src={p.image} alt="post" className="w-full h-full object-cover" />
+                        <img src={p.image} alt="post" loading="lazy" decoding="async" fetchpriority="low" className="w-full h-full object-cover" />
                       ) : p.video ? (
                         (() => { const id = youTubeId(p.video); return id ? (
-                          <img src={`https://img.youtube.com/vi/${id}/hqdefault.jpg`} alt="video thumb" className="w-full h-full object-cover" />
+                          <img src={`https://img.youtube.com/vi/${id}/hqdefault.jpg`} alt="video thumb" loading="lazy" decoding="async" fetchpriority="low" className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full bg-black grid place-items-center text-xs text-gray-400">Video</div>
                         )})()
@@ -294,9 +313,18 @@ export default function Home() {
       </section>
 
       {/* Newsletter */}
-      <section className="relative z-10">
+      <section className="relative z-10 cv-auto">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-10">
-          <div className="card p-6 bg-[url('/backgrounds/vecteezy_artisan-crafts-aesthetic_25431017.jpg')] bg-cover bg-center relative overflow-hidden">
+          <div className="card no-border no-shadow p-6 relative overflow-hidden">
+            <img
+              src="/backgrounds/artifex_newsletter.png"
+              alt="Newsletter background"
+              loading="lazy"
+              decoding="async"
+              fetchpriority="low"
+              className="absolute inset-0 w-full h-full object-cover gpu-hint"
+              aria-hidden="true"
+            />
             <div className="absolute inset-0 bg-black/40" />
             <div className="relative">
               <h3 className="text-2xl font-semibold">Subscribe to the Artifex Newsletter</h3>

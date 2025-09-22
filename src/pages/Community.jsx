@@ -313,13 +313,22 @@ function toDriveEmbed(url) {
   // https://drive.google.com/open?id=FILE_ID -> https://drive.google.com/file/d/FILE_ID/preview
   try {
     const u = new URL(url)
+    let fileId = null
     if (u.pathname.startsWith('/file/d/')) {
       const parts = u.pathname.split('/') // ['', 'file', 'd', 'FILE_ID', 'view']
-      const fileId = parts[3]
-      if (fileId) return `https://drive.google.com/file/d/${fileId}/preview`
+      fileId = parts[3] || null
+    } else {
+      fileId = u.searchParams.get('id')
     }
-    const id = u.searchParams.get('id')
-    if (id) return `https://drive.google.com/file/d/${id}/preview`
+    if (fileId) {
+      const qp = new URLSearchParams()
+      const resourceKey = u.searchParams.get('resourcekey')
+      const authuser = u.searchParams.get('authuser')
+      if (resourceKey) qp.set('resourcekey', resourceKey)
+      if (authuser) qp.set('authuser', authuser)
+      const qs = qp.toString()
+      return `https://drive.google.com/file/d/${fileId}/preview${qs ? `?${qs}` : ''}`
+    }
   } catch {}
   return url
 }

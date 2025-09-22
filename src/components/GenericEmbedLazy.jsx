@@ -18,11 +18,12 @@ function GenericEmbedLazyImpl({ src, storageKey, title = 'Embedded content', all
     iframe.title = title
     iframe.loading = 'lazy'
     iframe.className = 'w-full h-full'
-    iframe.setAttribute('frameborder', '0')
-    iframe.setAttribute('allow', allow)
-    iframe.setAttribute('referrerpolicy', referrerPolicy)
-    if (sandbox) iframe.setAttribute('sandbox', sandbox)
-    iframe.allowFullscreen = true
+  iframe.setAttribute('frameborder', '0')
+  iframe.setAttribute('allow', allow)
+  iframe.setAttribute('referrerpolicy', referrerPolicy)
+  if (sandbox) iframe.setAttribute('sandbox', sandbox)
+  // Use the property (not attribute) to avoid precedence warnings
+  iframe.allowFullscreen = true
     mountRef.current.appendChild(iframe)
     mountedRef.current = true
   }, [load, src, title, allow, referrerPolicy, sandbox])

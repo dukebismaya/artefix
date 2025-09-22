@@ -1,6 +1,8 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Navbar from './components/Navbar.jsx'
+import SmoothScroll from './components/SmoothScroll.jsx'
+import ScrollIndicator from './components/ScrollIndicator.jsx'
 import Footer from './components/Footer.jsx'
 import Home from './pages/Home.jsx'
 import UploadForm from './pages/UploadForm.jsx'
@@ -42,6 +44,8 @@ function App() {
                   <CommunityProvider>
           <div className="min-h-screen flex flex-col">
             <Navbar />
+            <SmoothScroll />
+            <ScrollIndicator />
             <main className="flex-1">
               <Routes>
                 <Route path="/" element={<Home />} />

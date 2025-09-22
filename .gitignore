@@ -26,3 +26,4 @@ run-dev.bat
 run-preview.bat
 package-lock.json
 .vercel
+et --hard 54d47f23aa6588624c05b1f8aefecb16d087ce6b
